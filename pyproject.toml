@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "volforecast"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.3,<3",
+    "numpy>=2,<3",
+    "pyarrow>=4,<25",
+    "ccxt>=4.5,<5",
+    "yfinance[nospam]>=1.4",
+    "exchange-calendars>=4.13",
+    "pandera[pandas]>=0.31",
+    "dvc>=3.67",
+    "mlflow>=3.13,<4",
+    "prefect>=3.7,<4",
+    "pyyaml>=6",
+    "psycopg2-binary",
+    "tenacity>=8",
+]
+
+[project.scripts]
+volforecast = "volforecast.cli:main"
+
+[dependency-groups]
+dev = ["ruff", "pytest>=8", "pre-commit"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/volforecast"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]

@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+env/
+.venv/
+venv/
+ENV/
+
+# uv
+# uv.lock is intentionally committed for reproducibility
+
+# DVC
+/data/raw/
+/data/processed/
+/data/quarantine/
+.dvc/cache/
+.dvc/tmp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.env
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Prefect
+.prefect/

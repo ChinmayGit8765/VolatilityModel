@@ -1,0 +1,11 @@
+* text=auto
+
+# Force LF for files that run in Linux containers
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Parquet and binary files — no line ending conversion
+*.parquet binary
+*.dvc text eol=lf
