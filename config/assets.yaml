@@ -1,0 +1,4 @@
+assets:
+  - symbol: BTC/USDT
+    asset_class: crypto
+    exchange: binance
