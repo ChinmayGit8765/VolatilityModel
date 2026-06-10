@@ -1,0 +1,9 @@
+# Add patterns of files dvc should ignore, which could improve
+# the performance. Learn more at
+# https://dvc.org/doc/user-guide/dvcignore
+
+# Quarantine output — written by the validate gate, not data to version
+data/quarantine/
+
+# Test fixtures are committed to git directly, not DVC-tracked
+tests/fixtures/
