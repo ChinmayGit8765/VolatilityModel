@@ -35,20 +35,25 @@ class TestEquityOhlcvSchema:
 
     def test_equity_schema_accepts_valid_data(self) -> None:
         """A well-formed equity OHLCV DataFrame validates without error."""
-        from volforecast.validate import equity_ohlcv_schema
-
         import exchange_calendars as xcals
+
+        from volforecast.validate import equity_ohlcv_schema
 
         xnys = xcals.get_calendar("XNYS")
         sessions = xnys.sessions_in_range("2022-01-03", "2022-01-14")
         idx = sessions.tz_localize("UTC")
+        n = len(idx)
+        # Vary close values so stale_row_check (used by validate_asset) does not fire.
+        # The schema itself does not run stale checks, but this fixture is also reused
+        # by validate_asset tests so we make it realistic.
+        closes = [150.0 + i * 0.5 for i in range(n)]
         df = pd.DataFrame(
             {
-                "open": [150.0] * len(idx),
-                "high": [155.0] * len(idx),
-                "low": [148.0] * len(idx),
-                "close": [152.0] * len(idx),
-                "volume": [1_000_000.0] * len(idx),
+                "open": [150.0 + i * 0.3 for i in range(n)],
+                "high": [155.0 + i * 0.3 for i in range(n)],
+                "low": [148.0 + i * 0.3 for i in range(n)],
+                "close": closes,
+                "volume": [1_000_000.0 + i * 1000 for i in range(n)],
             },
             index=idx,
         )
@@ -181,13 +186,15 @@ class TestValidateAssetCleanPasses:
         xnys = xcals.get_calendar("XNYS")
         sessions = xnys.sessions_in_range("2022-01-03", "2022-01-14")
         idx = sessions.tz_localize("UTC")
+        n = len(idx)
+        # Vary close values to avoid triggering stale_row_check (threshold 95% unique).
         df = pd.DataFrame(
             {
-                "open": [150.0] * len(idx),
-                "high": [155.0] * len(idx),
-                "low": [148.0] * len(idx),
-                "close": [152.0] * len(idx),
-                "volume": [1_000_000.0] * len(idx),
+                "open": [150.0 + i * 0.3 for i in range(n)],
+                "high": [155.0 + i * 0.3 for i in range(n)],
+                "low": [148.0 + i * 0.3 for i in range(n)],
+                "close": [152.0 + i * 0.5 for i in range(n)],
+                "volume": [1_000_000.0 + i * 1000 for i in range(n)],
             },
             index=idx,
         )
