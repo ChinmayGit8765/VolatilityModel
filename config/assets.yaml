@@ -1,4 +1,38 @@
+# VolForecast Asset Universe
+#
+# Full cross-asset universe: 2 crypto pairs (ccxt/Binance) + 3 equities (yfinance).
+#
+# Crypto assets:
+#   exchange: binance (default) — configurable per asset; use "kraken" as fallback
+#             if Binance is geo-blocked (HTTP 451, connection refused, or cloud-DC IP blocks).
+#             ccxt's unified fetch_ohlcv API makes exchange swaps a one-line config change.
+#
+# Equity assets:
+#   exchange: the market identifier (informational; yfinance fetches from Yahoo Finance
+#             regardless of this field). "nasdaq" / "nyse" etc. are used for calendar
+#             validation (exchange_calendars XNYS for NYSE-listed instruments).
+
 assets:
+  # ── Crypto ────────────────────────────────────────────────────────────────────
   - symbol: BTC/USDT
     asset_class: crypto
     exchange: binance
+    kraken_fallback: BTC/USDT  # use exchange: kraken if Binance is geo-blocked
+
+  - symbol: ETH/USDT
+    asset_class: crypto
+    exchange: binance
+    kraken_fallback: ETH/USDT  # use exchange: kraken if Binance is geo-blocked
+
+  # ── Equities ──────────────────────────────────────────────────────────────────
+  - symbol: SPY
+    asset_class: equity
+    exchange: nyse          # S&P 500 ETF — listed on NYSE Arca (XNYS calendar)
+
+  - symbol: AAPL
+    asset_class: equity
+    exchange: nasdaq        # Apple Inc — listed on NASDAQ (XNYS-compatible sessions)
+
+  - symbol: MSFT
+    asset_class: equity
+    exchange: nasdaq        # Microsoft Corp — listed on NASDAQ
