@@ -1,0 +1,93 @@
+# VolForecast local infrastructure stack
+#
+# Services:
+#   postgres       — shared Postgres 16 backend for MLflow and Prefect metadata stores
+#   mlflow-server  — MLflow 3 tracking server + model registry (port 5000)
+#   prefect-server — Prefect 3 orchestration server (port 4200)
+#   prefect-worker — Prefect worker polling the local-pool work pool
+#
+# Named volumes (never bind mounts — avoids SQLite-on-NTFS locking failures on Windows):
+#   postgres_data     — Postgres data directory
+#   mlflow_artifacts  — MLflow artifact store
+#
+# Usage:
+#   cp infra/.env.example infra/.env   # then edit with real credentials
+#   docker compose -f infra/docker-compose.yml up -d
+#   # MLflow UI: http://localhost:5000
+#   # Prefect UI: http://localhost:4200
+
+services:
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-volforecast}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-volforecast}
+      POSTGRES_DB: ${POSTGRES_DB:-mlflowdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Init scripts run on first start (creates prefectdb alongside mlflowdb)
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-volforecast} -d ${POSTGRES_DB:-mlflowdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Host port 5433 to avoid conflict with other local Postgres instances.
+    # MLflow and Prefect communicate with postgres on port 5432 via the Docker network,
+    # so this binding only affects host-side access (e.g., psql, debugging tools).
+    ports:
+      - "5433:5432"
+
+  mlflow-server:
+    image: ghcr.io/mlflow/mlflow:v3.13.0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      # Synchronous psycopg2 URI for MLflow (no +asyncpg)
+      MLFLOW_BACKEND_STORE_URI: "postgresql://${POSTGRES_USER:-volforecast}:${POSTGRES_PASSWORD:-volforecast}@postgres:5432/${POSTGRES_DB:-mlflowdb}"
+      # MLflow 3.x security middleware: allow connections from Docker host.
+      # MLFLOW_ALLOWED_HOSTS is not a supported env var; use --allowed-hosts flag via entrypoint script.
+      MLFLOW_HOST: "0.0.0.0"
+      MLFLOW_PORT: "5000"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+      - ./mlflow-entrypoint.sh:/mlflow-entrypoint.sh:ro
+    command: ["bash", "/mlflow-entrypoint.sh"]
+
+  prefect-server:
+    image: prefecthq/prefect:3-latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4200:4200"
+    environment:
+      # asyncpg URI for Prefect (separate DB from MLflow — prefectdb vs mlflowdb)
+      PREFECT_API_DATABASE_CONNECTION_URL: "postgresql+asyncpg://${POSTGRES_USER:-volforecast}:${POSTGRES_PASSWORD:-volforecast}@postgres:5432/prefectdb"
+      PREFECT_SERVER_API_HOST: "0.0.0.0"
+      PREFECT_SERVER_UI_API_URL: "http://localhost:4200/api"
+    command: prefect server start
+
+  prefect-worker:
+    image: prefecthq/prefect:3-latest
+    restart: unless-stopped
+    depends_on:
+      - prefect-server
+    environment:
+      PREFECT_API_URL: "http://prefect-server:4200/api"
+    command: prefect worker start --pool local-pool
+
+volumes:
+  postgres_data:
+  mlflow_artifacts:

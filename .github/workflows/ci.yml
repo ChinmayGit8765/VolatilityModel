@@ -1,0 +1,43 @@
+# VolForecast CI — lint + fixture-only tests on every push and pull request.
+#
+# Security domain: VOLFORECAST_NO_LIVE_API=1 prevents any live API call from
+# reaching ccxt/Binance or yfinance during CI. All tests must be fixture-only.
+#
+# No docker-compose stack is needed in CI for Phase 1 (lint + unit tests only).
+# Compose infrastructure is for local dev and Phase 4 orchestration.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Check formatting (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Run tests (fixture data only — no live API calls)
+        run: uv run pytest tests/ -x -q
+        env:
+          # Security: prevent any live API call from reaching external services in CI.
+          # Every ingest adapter and test that would call ccxt/yfinance must check
+          # this variable and raise RuntimeError if set.
+          VOLFORECAST_NO_LIVE_API: "1"
