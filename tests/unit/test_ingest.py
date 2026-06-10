@@ -15,10 +15,9 @@ Task 2 tests:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
-import pytest
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
@@ -75,15 +74,27 @@ class TestEquityAdapterNormalizesOhlcvContract:
     def test_equity_adapter_normalizes_to_ohlcv_contract(self) -> None:
         """Given a monkeypatched yfinance return, adapter yields per-ticker DataFrames
         with exactly OHLCV_COLUMNS, float64 dtype, and tz-aware UTC 'date' index.
+
+        The test patches both yf.download AND unsets VOLFORECAST_NO_LIVE_API so the env
+        guard (which protects against accidentally calling the real Yahoo Finance API) does
+        not block the monkeypatched execution path. This is the correct test pattern: the
+        env guard is a CI safety net, not a test-isolation tool — the monkeypatched
+        yf.download is what provides isolation.
         """
+        import os
+
         from volforecast.ingest.base import OHLCV_COLUMNS
-        from volforecast.ingest.equity import download_equity_ohlcv, normalize_equity_frame
+        from volforecast.ingest.equity import download_equity_ohlcv
 
         tickers = ["SPY", "AAPL"]
         raw = _make_yf_multi_raw(tickers, n=10)
 
-        # Monkeypatch the actual yf.download call inside equity module
-        with patch("volforecast.ingest.equity.yf.download", return_value=raw):
+        # Temporarily unset env guard so the monkeypatched download path is exercised
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch("volforecast.ingest.equity.yf.download", return_value=raw),
+        ):
+            os.environ.pop("VOLFORECAST_NO_LIVE_API", None)
             result = download_equity_ohlcv(tickers, start="2022-01-03", end="2022-01-31")
 
         assert isinstance(result, dict), "Expected dict keyed by ticker"
@@ -108,7 +119,12 @@ class TestEquityAdapterRetriesThenSucceeds:
     def test_equity_adapter_retries_then_succeeds(self) -> None:
         """If yf.download raises on the first call but succeeds on the second,
         download_equity_ohlcv still returns a valid per-ticker dict (retry is wired).
+
+        The env guard is temporarily unset so the retry path is exercised with the
+        monkeypatched downloader. No real network calls are made.
         """
+        import os
+
         from volforecast.ingest.equity import download_equity_ohlcv
 
         tickers = ["SPY"]
@@ -122,7 +138,11 @@ class TestEquityAdapterRetriesThenSucceeds:
                 raise OSError("Simulated rate-limit error on first attempt")
             return raw
 
-        with patch("volforecast.ingest.equity.yf.download", side_effect=flaky_download):
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch("volforecast.ingest.equity.yf.download", side_effect=flaky_download),
+        ):
+            os.environ.pop("VOLFORECAST_NO_LIVE_API", None)
             result = download_equity_ohlcv(tickers, start="2022-01-03", end="2022-01-31")
 
         assert "SPY" in result, "Retry succeeded but SPY missing from result"
@@ -165,7 +185,9 @@ class TestIncrementalResumeUsesLastStoredTimestamp:
         )
 
         # Verify it does NOT fall back to default when file exists
-        assert since != default_start_ms, "resume_since_ms should not return default when file exists"
+        assert since != default_start_ms, (
+            "resume_since_ms should not return default when file exists"
+        )
 
     def test_incremental_resume_falls_back_to_default_when_missing(
         self, tmp_path: Path
@@ -243,8 +265,9 @@ class TestIngestAllDispatchesByAssetClass:
 
                 if asset["asset_class"] == "crypto":
                     since = resume_since_ms(out, default_start_ms)
+                    exchange_id = asset.get("exchange", "binance")
                     df = fetch_crypto_ohlcv(
-                        asset["symbol"], since_ms=since, exchange_id=asset.get("exchange", "binance")
+                        asset["symbol"], since_ms=since, exchange_id=exchange_id
                     )
                     incremental_update(out, df)
                     written_paths.append(out)
