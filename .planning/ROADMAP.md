@@ -31,7 +31,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A single command fetches 2+ years of daily OHLCV for BTC, ETH, SPY, and at least 2 large caps; re-running is cache-first incremental (no full re-download), incomplete last candles are excluded, and yfinance `auto_adjust`/rate limits are handled explicitly
   4. Data with gaps, bad ticks, stale rows, schema violations, or fabricated weekend equity bars is rejected by Pandera gates before reaching features — crypto validated against a 24/7 calendar, equities against session/holiday calendars
   5. Raw and processed datasets can be reproduced at any commit via DVC checkout
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 01-01-PLAN.md — Walking Skeleton: scaffold package + pinned deps + CLI, ingest one crypto asset (BTC) through validate -> parquet -> DVC-track (end-to-end slice)
+- [ ] 01-02-PLAN.md — Broaden ingestion: full BTC+ETH (ccxt) and SPY/AAPL/MSFT (yfinance) cache-first incremental, auto_adjust + retry, configurable exchange
+- [ ] 01-03-PLAN.md — Validation layer: crypto + equity Pandera schemas, calendar-aware gap checks (24/7 vs XNYS), stale/OHLC checks, validate_asset dispatcher with quarantine
+- [ ] 01-04-PLAN.md — Infra + CI seal: docker-compose (Postgres + MLflow + Prefect), GitHub Actions fixture-only CI, .gitattributes, validate_asset wired into pipeline, processed-data DVC tracking
 
 ### Phase 2: Features, Target & Classical Baselines
 **Goal**: A leak-free purged walk-forward harness scores honest classical baselines (EWMA, GARCH(1,1), HAR-RV) on a canonically defined realized-vol target — the bar ML must clear exists before ML does
@@ -91,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Validated Data | 0/TBD | Not started | - |
+| 1. Foundation & Validated Data | 0/4 | Not started | - |
 | 2. Features, Target & Classical Baselines | 0/TBD | Not started | - |
 | 3. ML Challenger & Serving | 0/TBD | Not started | - |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
