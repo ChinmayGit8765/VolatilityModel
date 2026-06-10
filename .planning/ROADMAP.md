@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Raw and processed datasets can be reproduced at any commit via DVC checkout
 **Plans**: 4 plans
 Plans:
-- [ ] 01-01-PLAN.md — Walking Skeleton: scaffold package + pinned deps + CLI, ingest one crypto asset (BTC) through validate -> parquet -> DVC-track (end-to-end slice)
+- [x] 01-01-PLAN.md — Walking Skeleton: scaffold package + pinned deps + CLI, ingest one crypto asset (BTC) through validate -> parquet -> DVC-track (end-to-end slice)
 - [ ] 01-02-PLAN.md — Broaden ingestion: full BTC+ETH (ccxt) and SPY/AAPL/MSFT (yfinance) cache-first incremental, auto_adjust + retry, configurable exchange
 - [ ] 01-03-PLAN.md — Validation layer: crypto + equity Pandera schemas, calendar-aware gap checks (24/7 vs XNYS), stale/OHLC checks, validate_asset dispatcher with quarantine
 - [ ] 01-04-PLAN.md — Infra + CI seal: docker-compose (Postgres + MLflow + Prefect), GitHub Actions fixture-only CI, .gitattributes, validate_asset wired into pipeline, processed-data DVC tracking
@@ -96,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Validated Data | 0/4 | Not started | - |
+| 1. Foundation & Validated Data | 1/4 | In Progress|  |
 | 2. Features, Target & Classical Baselines | 0/TBD | Not started | - |
 | 3. ML Challenger & Serving | 0/TBD | Not started | - |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
