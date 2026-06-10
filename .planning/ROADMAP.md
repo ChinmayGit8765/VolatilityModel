@@ -12,7 +12,7 @@ VolForecast goes from empty repo to a closed-loop volatility forecasting platfor
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation & Validated Data** - Reproducible local stack (package, compose, CI) ingesting and validating 2+ years of crypto + equity OHLCV under DVC
+- [x] **Phase 1: Foundation & Validated Data** - Reproducible local stack (package, compose, CI) ingesting and validating 2+ years of crypto + equity OHLCV under DVC (completed 2026-06-10)
 - [ ] **Phase 2: Features, Target & Classical Baselines** - Documented RV target, single feature codepath, and a leak-free walk-forward harness scoring EWMA/GARCH/HAR-RV
 - [ ] **Phase 3: ML Challenger & Serving** - MLflow-tracked LightGBM benchmarked on identical folds, served via Dockerized FastAPI with an append-only prediction log
 - [ ] **Phase 4: Monitoring, Orchestration & Retraining** - Closed feedback loop: auto labels, drift detection, alerting, Prefect DAG, QLIKE-gated champion/challenger promotion
@@ -36,7 +36,7 @@ Plans:
 - [x] 01-01-PLAN.md — Walking Skeleton: scaffold package + pinned deps + CLI, ingest one crypto asset (BTC) through validate -> parquet -> DVC-track (end-to-end slice)
 - [x] 01-02-PLAN.md — Broaden ingestion: full BTC+ETH (ccxt) and SPY/AAPL/MSFT (yfinance) cache-first incremental, auto_adjust + retry, configurable exchange
 - [x] 01-03-PLAN.md — Validation layer: crypto + equity Pandera schemas, calendar-aware gap checks (24/7 vs XNYS), stale/OHLC checks, validate_asset dispatcher with quarantine
-- [ ] 01-04-PLAN.md — Infra + CI seal: docker-compose (Postgres + MLflow + Prefect), GitHub Actions fixture-only CI, .gitattributes, validate_asset wired into pipeline, processed-data DVC tracking
+- [x] 01-04-PLAN.md — Infra + CI seal: docker-compose (Postgres + MLflow + Prefect), GitHub Actions fixture-only CI, .gitattributes, validate_asset wired into pipeline, processed-data DVC tracking
 
 ### Phase 2: Features, Target & Classical Baselines
 **Goal**: A leak-free purged walk-forward harness scores honest classical baselines (EWMA, GARCH(1,1), HAR-RV) on a canonically defined realized-vol target — the bar ML must clear exists before ML does
@@ -96,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Validated Data | 3/4 | In Progress|  |
+| 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
 | 2. Features, Target & Classical Baselines | 0/TBD | Not started | - |
 | 3. ML Challenger & Serving | 0/TBD | Not started | - |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
