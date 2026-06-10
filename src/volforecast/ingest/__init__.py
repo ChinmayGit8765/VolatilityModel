@@ -6,7 +6,7 @@ from volforecast.ingest.base import (
     drop_incomplete_candles,
     incremental_update,
 )
-from volforecast.ingest.crypto import fetch_crypto_ohlcv
+from volforecast.ingest.crypto import fetch_crypto_ohlcv, resume_since_ms
 from volforecast.ingest.equity import download_equity_ohlcv, normalize_equity_frame
 
 __all__ = [
@@ -15,6 +15,7 @@ __all__ = [
     "drop_incomplete_candles",
     "incremental_update",
     "fetch_crypto_ohlcv",
+    "resume_since_ms",
     "download_equity_ohlcv",
     "normalize_equity_frame",
 ]
