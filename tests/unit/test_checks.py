@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
@@ -47,12 +46,13 @@ class TestEquitySessionCheck:
 
     def test_equity_clean_passes_session_check(self) -> None:
         """A clean equity fixture with only valid XNYS sessions must pass."""
+        import exchange_calendars as xcals
+
         from volforecast.validate.checks import equity_session_check
 
         # Build a small but correct equity fixture inline: Mon 2022-01-03 to Fri 2022-01-07
         # XNYS sessions: 2022-01-03 (Mon), 2022-01-04 (Tue), 2022-01-05 (Wed),
         #                2022-01-06 (Thu), 2022-01-07 (Fri)
-        import exchange_calendars as xcals
 
         xnys = xcals.get_calendar("XNYS")
         sessions = xnys.sessions_in_range("2022-01-03", "2022-01-07")
