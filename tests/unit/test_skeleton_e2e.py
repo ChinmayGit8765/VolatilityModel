@@ -10,16 +10,14 @@ Imports will fail with ImportError/ModuleNotFoundError until the implementation
 is in place. The conftest.py sets VOLFORECAST_NO_LIVE_API=1 so no live calls
 can be made.
 """
-import os
+
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-# These imports will raise ImportError in RED phase — that is expected.
 from volforecast.ingest.base import drop_incomplete_candles, incremental_update
 from volforecast.validate.schemas import crypto_ohlcv_schema
-
 
 DAY_MS = 24 * 60 * 60 * 1000  # one daily candle timeframe in milliseconds
 
@@ -53,7 +51,9 @@ class TestIngestPipelineWritesValidatedParquet:
         base_rows = []
         for idx, row in crypto_fixture_df.iterrows():
             ts_ms = int(idx.timestamp() * 1000)
-            base_rows.append([ts_ms, row["open"], row["high"], row["low"], row["close"], row["volume"]])
+            base_rows.append(
+                [ts_ms, row["open"], row["high"], row["low"], row["close"], row["volume"]]
+            )
         raw_candles = base_rows + [forming_candle]
 
         # Drop incomplete candles
@@ -98,8 +98,8 @@ class TestIngestGateRejectsOhlcViolation:
         df = pd.DataFrame(
             {
                 "open": [40000.0] * 5,
-                "high": [41000.0, 41000.0, 39000.0, 41000.0, 41000.0],  # row 2: high < low
-                "low": [39000.0, 39000.0, 40000.0, 39000.0, 39000.0],   # row 2: high=39000 < low=40000
+                "high": [41000.0, 41000.0, 39000.0, 41000.0, 41000.0],  # row 2: high<low
+                "low": [39000.0, 39000.0, 40000.0, 39000.0, 39000.0],  # row 2: high<low
                 "close": [40500.0] * 5,
                 "volume": [5000.0] * 5,
             },
@@ -125,7 +125,9 @@ class TestIncrementalMergeDedupe:
     entries, keeping the latest value for any overlapping dates.
     """
 
-    def test_incremental_merge_dedupe(self, crypto_fixture_df: pd.DataFrame, tmp_path: Path) -> None:
+    def test_incremental_merge_dedupe(
+        self, crypto_fixture_df: pd.DataFrame, tmp_path: Path
+    ) -> None:
         """Overlapping date range merges with dedupe; no duplicate index entries."""
         out_path = tmp_path / "BTC-USD.parquet"
 
