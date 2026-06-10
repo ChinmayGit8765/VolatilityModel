@@ -72,3 +72,20 @@ def raw_path(asset: dict[str, Any], data_root: Path | str | None = None) -> Path
     root = Path(data_root) if data_root else _DATA_ROOT
     slug = symbol_slug(asset["symbol"])
     return root / "raw" / asset["asset_class"] / f"{slug}.parquet"
+
+
+def processed_path(asset: dict[str, Any], data_root: Path | str | None = None) -> Path:
+    """Return the canonical processed parquet path for an asset.
+
+    Processed data is written only after the asset has passed the validate_asset gate.
+
+    Args:
+        asset: Asset dict with keys: symbol, asset_class.
+        data_root: Root data directory. Defaults to data/ relative to project root.
+
+    Returns:
+        Path like data/processed/{asset_class}/{slug}.parquet
+    """
+    root = Path(data_root) if data_root else _DATA_ROOT
+    slug = symbol_slug(asset["symbol"])
+    return root / "processed" / asset["asset_class"] / f"{slug}.parquet"
