@@ -3,6 +3,7 @@
 Sets VOLFORECAST_NO_LIVE_API=1 at import time so no test can accidentally make
 a live exchange/API call.
 """
+
 import os
 from pathlib import Path
 

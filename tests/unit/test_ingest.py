@@ -146,9 +146,7 @@ class TestEquityAdapterRetriesThenSucceeds:
             result = download_equity_ohlcv(tickers, start="2022-01-03", end="2022-01-31")
 
         assert "SPY" in result, "Retry succeeded but SPY missing from result"
-        assert call_count["n"] == 2, (
-            f"Expected 2 calls (1 fail + 1 succeed), got {call_count['n']}"
-        )
+        assert call_count["n"] == 2, f"Expected 2 calls (1 fail + 1 succeed), got {call_count['n']}"
 
 
 # ── Task 2: Cache-first incremental resume + multi-asset dispatch ─────────────
@@ -189,9 +187,7 @@ class TestIncrementalResumeUsesLastStoredTimestamp:
             "resume_since_ms should not return default when file exists"
         )
 
-    def test_incremental_resume_falls_back_to_default_when_missing(
-        self, tmp_path: Path
-    ) -> None:
+    def test_incremental_resume_falls_back_to_default_when_missing(self, tmp_path: Path) -> None:
         """When the parquet does not exist, resume_since_ms returns default_start_ms."""
         from volforecast.ingest.crypto import resume_since_ms
 
@@ -199,9 +195,7 @@ class TestIncrementalResumeUsesLastStoredTimestamp:
         default_ms = int(pd.Timestamp("2020-01-01", tz="UTC").timestamp() * 1000)
 
         since = resume_since_ms(missing_path, default_ms)
-        assert since == default_ms, (
-            f"Expected default {default_ms} when file missing, got {since}"
-        )
+        assert since == default_ms, f"Expected default {default_ms} when file missing, got {since}"
 
 
 class TestIngestAllDispatchesByAssetClass:

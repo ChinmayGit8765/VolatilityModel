@@ -60,8 +60,8 @@ def _download_with_retry(
         tickers=tickers,
         start=start,
         end=end,
-        auto_adjust=True,   # Adjusted for splits + dividends — explicit documented decision
-        threads=False,      # Disable threading: shared-global-dict bug in yfinance 1.x
+        auto_adjust=True,  # Adjusted for splits + dividends — explicit documented decision
+        threads=False,  # Disable threading: shared-global-dict bug in yfinance 1.x
         progress=False,
     )
 

@@ -52,8 +52,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--start",
         default=_DEFAULT_START,
         help=f"Start date in YYYY-MM-DD format (default: {_DEFAULT_START}). "
-             "For incremental re-runs the cache-first logic takes precedence and "
-             "resumes from the last stored date per asset.",
+        "For incremental re-runs the cache-first logic takes precedence and "
+        "resumes from the last stored date per asset.",
     )
     ingest.add_argument(
         "--exchange",
@@ -164,10 +164,7 @@ def _ingest_single_asset(
 
     # ── Step 4: Write processed parquet (only on validation success) ─────────
     proc_result = incremental_update(processed_out_path, validated_df)
-    print(
-        f"  Processed: stored {len(proc_result)} rows "
-        f"through {proc_result.index.max().date()}."
-    )
+    print(f"  Processed: stored {len(proc_result)} rows through {proc_result.index.max().date()}.")
     return 0
 
 
@@ -231,9 +228,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
 
         out_path = raw_path(asset, data_root=project_root / "data")
         processed_out_path = processed_path(asset, data_root=project_root / "data")
-        quarantine_path = (
-            project_root / "data" / "quarantine" / f"{slug}_quarantine.csv"
-        )
+        quarantine_path = project_root / "data" / "quarantine" / f"{slug}_quarantine.csv"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         processed_out_path.parent.mkdir(parents=True, exist_ok=True)
         quarantine_path.parent.mkdir(parents=True, exist_ok=True)

@@ -180,9 +180,7 @@ def test_pipeline_quarantines_and_skips_bad_asset(
     )
 
     # Validation failure returns 1 (gate fails closed)
-    assert rc == 1, (
-        f"Pipeline should return 1 for rejected asset, got {rc}"
-    )
+    assert rc == 1, f"Pipeline should return 1 for rejected asset, got {rc}"
 
     # Raw parquet must still exist (raw is always written before validation)
     assert out_path.exists(), f"Raw parquet not written to {out_path}"

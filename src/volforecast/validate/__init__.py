@@ -103,8 +103,7 @@ def validate_asset(
     """
     if asset_class not in _ASSET_CLASS_SCHEMA:
         raise ValueError(
-            f"Unknown asset_class '{asset_class}'. "
-            f"Expected one of: {list(_ASSET_CLASS_SCHEMA)}"
+            f"Unknown asset_class '{asset_class}'. Expected one of: {list(_ASSET_CLASS_SCHEMA)}"
         )
 
     schema = _ASSET_CLASS_SCHEMA[asset_class]

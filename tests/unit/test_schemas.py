@@ -30,6 +30,7 @@ def _load_fixture(name: str) -> pd.DataFrame:
 # equity_ohlcv_schema: basic structural tests
 # ---------------------------------------------------------------------------
 
+
 class TestEquityOhlcvSchema:
     """equity_ohlcv_schema must accept valid data and reject schema violations."""
 
@@ -71,9 +72,9 @@ class TestEquityOhlcvSchema:
         dates = pd.date_range("2022-01-03", periods=3, freq="B", tz="UTC")
         df = pd.DataFrame(
             {
-                "open": [-1.0, 150.0, 150.0],   # negative price on row 0
+                "open": [-1.0, 150.0, 150.0],  # negative price on row 0
                 "high": [155.0, 155.0, 155.0],
-                "low": [-2.0, 148.0, 148.0],    # negative price on row 0
+                "low": [-2.0, 148.0, 148.0],  # negative price on row 0
                 "close": [152.0, 152.0, 152.0],
                 "volume": [1_000_000.0] * 3,
             },
@@ -91,6 +92,7 @@ class TestEquityOhlcvSchema:
 # ---------------------------------------------------------------------------
 # validate_asset: weekend-bad fixture raises + writes quarantine
 # ---------------------------------------------------------------------------
+
 
 class TestValidateAssetEquityRejectsWeekend:
     """validate_asset with 'equity' and the weekend fixture must fail closed."""
@@ -120,6 +122,7 @@ class TestValidateAssetEquityRejectsWeekend:
 # ---------------------------------------------------------------------------
 # validate_asset: OHLC-violation fixture raises + writes quarantine
 # ---------------------------------------------------------------------------
+
 
 class TestValidateAssetCryptoRejectsOhlcViolation:
     """validate_asset with 'crypto' and an OHLC-violation row must fail closed."""
@@ -156,6 +159,7 @@ class TestValidateAssetCryptoRejectsOhlcViolation:
 # ---------------------------------------------------------------------------
 # validate_asset: clean fixtures return df and write NO quarantine
 # ---------------------------------------------------------------------------
+
 
 class TestValidateAssetCleanPasses:
     """validate_asset on clean fixtures returns the validated df without writing quarantine."""
@@ -214,6 +218,7 @@ class TestValidateAssetCleanPasses:
 # ---------------------------------------------------------------------------
 # validate_and_quarantine: low-level schema helper (from Plan 01)
 # ---------------------------------------------------------------------------
+
 
 class TestValidateAndQuarantine:
     """validate_and_quarantine writes a quarantine CSV and re-raises on schema failure."""

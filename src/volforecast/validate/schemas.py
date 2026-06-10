@@ -94,7 +94,7 @@ equity_ohlcv_schema = pa.DataFrameSchema(
     },
     index=pa.Index(_UTC_DATETIME_DTYPE, name="date"),
     checks=_OHLCV_CONSISTENCY_CHECKS,
-    coerce=True,   # normalise ns→us precision (see note above crypto_ohlcv_schema)
+    coerce=True,  # normalise ns→us precision (see note above crypto_ohlcv_schema)
     strict=True,
 )
 

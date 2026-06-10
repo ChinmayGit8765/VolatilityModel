@@ -19,6 +19,7 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 # Helper: load fixtures
 # ---------------------------------------------------------------------------
 
+
 def _load_fixture(name: str) -> pd.DataFrame:
     """Load a parquet fixture from tests/fixtures/."""
     return pd.read_parquet(FIXTURES_DIR / name)
@@ -27,6 +28,7 @@ def _load_fixture(name: str) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # equity_session_check — fabricated weekend row
 # ---------------------------------------------------------------------------
+
 
 class TestEquitySessionCheck:
     """equity_session_check must reject DataFrames containing non-XNYS rows."""
@@ -80,6 +82,7 @@ class TestEquitySessionCheck:
 # crypto_gap_check — missing interior day
 # ---------------------------------------------------------------------------
 
+
 class TestCryptoGapCheck:
     """crypto_gap_check must detect any missing day in a 24/7 continuous range."""
 
@@ -92,9 +95,7 @@ class TestCryptoGapCheck:
         assert result.passed is False, (
             "crypto_gap_check should fail for a fixture with a missing interior day"
         )
-        assert len(result.offending_index) > 0, (
-            "offending_index should list the missing day(s)"
-        )
+        assert len(result.offending_index) > 0, "offending_index should list the missing day(s)"
 
     def test_crypto_clean_passes_gap_check(self) -> None:
         """The crypto_sample.parquet clean fixture (continuous dates) must pass."""
@@ -112,6 +113,7 @@ class TestCryptoGapCheck:
 # stale_row_check
 # ---------------------------------------------------------------------------
 
+
 class TestStaleRowCheck:
     """stale_row_check detects an excess of duplicate close values."""
 
@@ -125,7 +127,7 @@ class TestStaleRowCheck:
                 "open": [100.0] * 20,
                 "high": [105.0] * 20,
                 "low": [98.0] * 20,
-                "close": [100.0] * 20,   # all identical — stale feed
+                "close": [100.0] * 20,  # all identical — stale feed
                 "volume": [1_000_000.0] * 20,
             },
             index=dates,
@@ -152,6 +154,7 @@ class TestStaleRowCheck:
 # ohlc_consistency_check
 # ---------------------------------------------------------------------------
 
+
 class TestOhlcConsistencyCheck:
     """ohlc_consistency_check rejects rows where high < low/open/close."""
 
@@ -163,7 +166,7 @@ class TestOhlcConsistencyCheck:
         df = pd.DataFrame(
             {
                 "open": [100.0] * 5,
-                "high": [105.0, 105.0, 95.0, 105.0, 105.0],   # row 2: high=95 < low=98
+                "high": [105.0, 105.0, 95.0, 105.0, 105.0],  # row 2: high=95 < low=98
                 "low": [98.0] * 5,
                 "close": [102.0] * 5,
                 "volume": [1_000_000.0] * 5,
@@ -192,6 +195,7 @@ class TestOhlcConsistencyCheck:
 # ---------------------------------------------------------------------------
 # test_clean_fixtures_pass — green path for both fixture types
 # ---------------------------------------------------------------------------
+
 
 class TestCleanFixturesPass:
     """Clean fixtures (crypto_sample.parquet) pass all applicable checks."""
