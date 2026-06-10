@@ -27,6 +27,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mlflowdb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Init scripts run on first start (creates prefectdb alongside mlflowdb)
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         [
@@ -36,8 +38,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # Host port 5433 to avoid conflict with other local Postgres instances.
+    # MLflow and Prefect communicate with postgres on port 5432 via the Docker network,
+    # so this binding only affects host-side access (e.g., psql, debugging tools).
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   mlflow-server:
     image: ghcr.io/mlflow/mlflow:v3.13.0
@@ -50,15 +55,14 @@ services:
     environment:
       # Synchronous psycopg2 URI for MLflow (no +asyncpg)
       MLFLOW_BACKEND_STORE_URI: "postgresql://${POSTGRES_USER:-volforecast}:${POSTGRES_PASSWORD:-volforecast}@postgres:5432/${POSTGRES_DB:-mlflowdb}"
+      # MLflow 3.x security middleware: allow connections from Docker host.
+      # MLFLOW_ALLOWED_HOSTS is not a supported env var; use --allowed-hosts flag via entrypoint script.
+      MLFLOW_HOST: "0.0.0.0"
+      MLFLOW_PORT: "5000"
     volumes:
       - mlflow_artifacts:/mlflow/artifacts
-    command: >
-      bash -c "pip install psycopg2-binary -q &&
-               mlflow server
-               --backend-store-uri postgresql://${POSTGRES_USER:-volforecast}:${POSTGRES_PASSWORD:-volforecast}@postgres:5432/${POSTGRES_DB:-mlflowdb}
-               --default-artifact-root /mlflow/artifacts
-               --host 0.0.0.0
-               --port 5000"
+      - ./mlflow-entrypoint.sh:/mlflow-entrypoint.sh:ro
+    command: ["bash", "/mlflow-entrypoint.sh"]
 
   prefect-server:
     image: prefecthq/prefect:3-latest
