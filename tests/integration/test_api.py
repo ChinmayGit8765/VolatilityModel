@@ -44,6 +44,48 @@ class _StubModel:
 # ---------------------------------------------------------------------------
 
 
+def _write_synthetic_processed(root: Path) -> None:
+    """Create a hermetic project root: assets.yaml + synthetic processed parquets.
+
+    CI has no data/ directory (gitignored, DVC-tracked), so the fixture must not
+    depend on real ingested data. 320 rows is enough for every feature window
+    (rv_66, GARCH_MIN_TRAIN=252) in build_features.
+    """
+    import shutil
+
+    repo_root = Path(__file__).parent.parent.parent
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    shutil.copy(repo_root / "config" / "assets.yaml", root / "config" / "assets.yaml")
+
+    rng = np.random.default_rng(7)
+    n = 320
+    assets = [
+        ("crypto", "BTC-USD"),
+        ("crypto", "ETH-USD"),
+        ("equity", "SPY"),
+        ("equity", "AAPL"),
+        ("equity", "MSFT"),
+    ]
+    for asset_class, slug in assets:
+        dates = pd.date_range("2024-01-01", periods=n, freq="D", tz="UTC")
+        log_ret = rng.normal(0.0, 0.015, size=n)
+        close = 100.0 * np.exp(np.cumsum(log_ret))
+        spread = np.abs(rng.normal(0.0, 0.005, size=n))
+        df = pd.DataFrame(
+            {
+                "open": close * (1 - spread / 2),
+                "high": close * (1 + spread),
+                "low": close * (1 - spread),
+                "close": close,
+                "volume": rng.uniform(1e6, 5e6, size=n),
+            },
+            index=pd.Index(dates, name="date"),
+        )
+        out = root / "data" / "processed" / asset_class / f"{slug}.parquet"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(out)
+
+
 @pytest.fixture()
 def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Return a TestClient with a mocked champion model and tmp prediction log.
@@ -55,11 +97,9 @@ def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     log_path = tmp_path / "predictions.parquet"
     monkeypatch.setenv("PREDICTION_LOG_PATH", str(log_path))
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:9999")  # unreachable — OK
-    # Point data root at a known location
-    monkeypatch.setenv(
-        "VOLFORECAST_ROOT",
-        str(Path(__file__).parent.parent.parent),
-    )
+    # Hermetic project root: synthetic processed data + assets.yaml (CI has no data/)
+    _write_synthetic_processed(tmp_path)
+    monkeypatch.setenv("VOLFORECAST_ROOT", str(tmp_path))
 
     # Import and inject fake model state BEFORE creating the TestClient
     # so the lifespan never actually calls mlflow.
