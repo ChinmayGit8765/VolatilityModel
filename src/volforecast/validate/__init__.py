@@ -76,7 +76,7 @@ def validate_asset(
     2. Calendar-aware gap/session check:
        - crypto → crypto_gap_check (continuous 24/7 date_range)
        - equity → equity_session_check (XNYS sessions_in_range)
-    3. stale_row_check (repeated-close detection).
+    3. stale_row_check (consecutive repeated-close run detection).
     4. ohlc_consistency_check (redundant safety net for non-schema paths).
 
     On ANY failure all violations are aggregated into a single quarantine CSV

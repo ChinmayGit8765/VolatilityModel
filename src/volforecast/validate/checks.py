@@ -7,7 +7,7 @@ Checks:
 - crypto_gap_check: 24/7 continuous daily calendar — any missing day is a gap error.
 - equity_session_check: XNYS session calendar — extra rows (fabricated weekend/holiday)
   and missing expected sessions are both reported as failures.
-- stale_row_check: flags when too many close values are duplicated (possible stale feed).
+- stale_row_check: flags runs of consecutive identical close values (stuck/stale feed).
 - ohlc_consistency_check: high >= low/open/close and low <= open/close.
 """
 
@@ -150,48 +150,42 @@ def equity_session_check(df: pd.DataFrame) -> CheckResult:
 # ---------------------------------------------------------------------------
 
 
-def stale_row_check(df: pd.DataFrame, threshold: float = 0.95) -> CheckResult:
-    """Flag DataFrames where an excessive fraction of close values are duplicated.
+def stale_row_check(df: pd.DataFrame, max_run: int = 5) -> CheckResult:
+    """Flag runs of more than `max_run` CONSECUTIVE identical close values.
 
-    A healthy price series has varied close values across days.  If more than
-    (1 - threshold) of rows share a duplicated close value, this indicates a
-    possible stale / stuck feed.
-
-    The check passes when at least `threshold` fraction of close values are unique
-    (non-duplicated when compared to the full series).
-
-    Implementation follows the RESEARCH stale-row example:
-        (~df["close"].duplicated(keep=False)).sum() > len(df) * threshold
+    A stale / stuck feed manifests as the same close value repeated on
+    consecutive rows.  Non-consecutive duplicate closes are normal for real
+    price series — equity closes are quantized to cents, so collisions across
+    multi-year history are expected and must NOT be flagged.  (An earlier
+    implementation flagged *global* duplicates against a 95 % uniqueness
+    threshold, which falsely quarantined clean real-world equity data.)
 
     Args:
         df: DataFrame with a "close" column.
-        threshold: Fraction of non-duplicated close values required to pass
-                   (default 0.95 — passes if >=95 % of closes are distinct).
+        max_run: Longest tolerated run of consecutive identical closes
+                 (default 5 — a 6th consecutive repeat fails the check).
 
     Returns:
-        CheckResult with passed=True if the fraction of non-duplicated closes
-        meets the threshold.
+        CheckResult with passed=True if no run of consecutive identical closes
+        exceeds `max_run`, or passed=False with the offending row index values
+        (the rows beyond position `max_run` within each too-long run).
     """
     if df.empty or "close" not in df.columns:
         return CheckResult(passed=True)
 
-    non_dup_mask = ~df["close"].duplicated(keep=False)
-    fraction_unique = non_dup_mask.sum() / len(df)
+    # A stale feed produces runs of consecutive identical closes.
+    same_as_prev = df["close"].diff() == 0
+    run_id = (~same_as_prev).cumsum()
+    run_lengths = same_as_prev.groupby(run_id).cumsum() + 1
+    offending_mask = run_lengths > max_run
 
-    if fraction_unique > threshold:
+    if not offending_mask.any():
         return CheckResult(passed=True)
-
-    # Identify which rows are the duplicated closes
-    dup_mask = df["close"].duplicated(keep=False)
-    offending = df.index[dup_mask].tolist()
 
     return CheckResult(
         passed=False,
-        offending_index=offending,
-        reason=(
-            f"Too many repeated close values: {fraction_unique:.1%} non-duplicated "
-            f"(threshold {threshold:.1%})"
-        ),
+        offending_index=df.index[offending_mask].tolist(),
+        reason=f"Stale feed: close repeated for more than {max_run} consecutive rows",
     )
 
 
