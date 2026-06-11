@@ -224,8 +224,8 @@ class TestGenerateBaselineReport:
                 assert np.isfinite(val), f"{col} must be finite, got {val}"
                 assert val >= 0, f"{col} must be >= 0, got {val}"
 
-    def test_model_column_is_ewma(self, two_asset_setup):
-        """At this plan stage, the only model is EWMA."""
+    def test_model_column_contains_ewma(self, two_asset_setup):
+        """EWMA must be present in the model column (plan 02-03 adds GARCH + HAR too)."""
         s = two_asset_setup
         generate_baseline_report(
             s["assets"],
@@ -239,5 +239,5 @@ class TestGenerateBaselineReport:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-        for row in rows:
-            assert row["model"] == "EWMA", f"Expected model='EWMA', got '{row['model']}'"
+        models = {row["model"] for row in rows}
+        assert "EWMA" in models, f"EWMA must be present in model column, got: {models}"

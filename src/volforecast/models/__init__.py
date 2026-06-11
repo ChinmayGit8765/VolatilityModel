@@ -12,5 +12,7 @@ Phase 03 ML models:
 """
 
 from volforecast.models.ewma import EWMA
+from volforecast.models.garch import GARCH
+from volforecast.models.har_rv import HARRV
 
-__all__ = ["EWMA"]
+__all__ = ["EWMA", "GARCH", "HARRV"]
