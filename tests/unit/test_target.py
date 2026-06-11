@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from volforecast.features.target import HORIZON, compute_target, forward_realized_var
 

@@ -14,7 +14,6 @@ No fixtures or network calls — all data is constructed inline.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from volforecast.eval.metrics import QLIKE_FLOOR, mae, qlike, rmse
 
