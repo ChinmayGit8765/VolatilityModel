@@ -1,10 +1,16 @@
 ---
 phase: 01-foundation-validated-data
 verified: 2026-06-11T00:00:00Z
-status: gaps_found
-score: 4/5 must-haves verified
+status: passed
+score: 5/5 must-haves verified
 overrides_applied: 0
-gaps:
+gap_closure: >
+  2026-06-11 — SC-2 gap closed: `ruff format src tests` applied (10 files), pushed to
+  origin/main (ChinmayGit8765/VolatilityModel). GitHub Actions run on 4fc9892 concluded
+  SUCCESS after pinning setup-uv to v8.2.0 (moving v8 major tag does not exist).
+  Post-review fixes (2 Critical + 9 Warning, commits 170aed3..c04e661) pushed; suite
+  green locally with 47 tests. CI re-confirmed on c04e661 (see orchestrator log).
+resolved_gaps:
   - truth: "Every push triggers GitHub Actions CI that passes lint and unit tests using fixture data only — no live API calls in CI"
     status: failed
     reason: >
