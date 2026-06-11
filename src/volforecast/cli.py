@@ -130,11 +130,17 @@ def _ingest_single_asset(
             print(f"  WARNING: {symbol} returned no closed candles — skipping.", file=sys.stderr)
             return 0
     elif asset_class == "equity":
-        from volforecast.ingest.equity import download_equity_ohlcv
+        from volforecast.ingest.equity import download_equity_ohlcv, effective_fetch_start
 
-        print(f"  Fetching equity {symbol} via yfinance since {start}...")
+        # WR-09: always re-download from the earliest stored date so the whole
+        # history lands on ONE split/dividend adjustment basis.  Fetching only
+        # from a later --start would leave stored pre-start rows on the old
+        # basis after a corporate action — a fabricated discontinuity at the
+        # seam that no validation gate detects.
+        fetch_start = effective_fetch_start(out_path, start)
+        print(f"  Fetching equity {symbol} via yfinance since {fetch_start}...")
         try:
-            result_dict = download_equity_ohlcv([symbol], start=start, end=None)
+            result_dict = download_equity_ohlcv([symbol], start=fetch_start, end=None)
         except RuntimeError as e:
             print(f"  ERROR: {e}", file=sys.stderr)
             return 1

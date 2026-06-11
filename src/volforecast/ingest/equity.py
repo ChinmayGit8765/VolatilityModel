@@ -27,12 +27,49 @@ OHLCV Contract:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from volforecast.ingest.base import OHLCV_COLUMNS
+
+
+def effective_fetch_start(existing_path: Path | str, requested_start: str) -> str:
+    """Return the download start date that keeps stored equity history on ONE
+    adjustment basis.
+
+    With ``auto_adjust=True``, Yahoo rewrites the ENTIRE price history whenever
+    a split or dividend occurs.  If a re-run fetched only from a later --start,
+    stored rows before that date would remain on the OLD adjustment basis while
+    new rows use the new basis — fabricating a price discontinuity at the seam
+    (e.g. a 4:1 split looks like a −75 % one-day return), which no gate detects.
+
+    To prevent mixed bases, equities always re-download from the EARLIEST
+    stored date (or the requested start, whichever is earlier).  The merge's
+    keep="last" semantics then rewrite every stored row on the current basis.
+
+    Args:
+        existing_path: Path to the stored parquet (raw) for this ticker.
+            May not exist on first run.
+        requested_start: The --start date requested for this run, "YYYY-MM-DD".
+
+    Returns:
+        "YYYY-MM-DD" start date: min(requested_start, first stored date), or
+        requested_start when no data is stored yet.
+    """
+    path = Path(existing_path)
+    if not path.exists():
+        return requested_start
+
+    stored = pd.read_parquet(path)
+    if stored.empty:
+        return requested_start
+
+    first_stored = stored.index.min().strftime("%Y-%m-%d")
+    # ISO date strings compare lexicographically == chronologically
+    return min(requested_start, first_stored)
 
 
 @retry(

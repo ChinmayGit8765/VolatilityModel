@@ -365,3 +365,102 @@ class TestIngestAllDispatchesByAssetClass:
         # The overlapping rows should have the new value (keep=last)
         for date in df2.index:
             assert result.loc[date, "close"] == 99999.0
+
+
+# ── WR-09: equity fetches always restart from the stored inception date ───────
+
+
+class TestEquityEffectiveFetchStart:
+    """effective_fetch_start keeps the whole equity history on one adjustment basis."""
+
+    def test_missing_file_returns_requested_start(self, tmp_path: Path) -> None:
+        """First run (no stored parquet): the requested --start is used as-is."""
+        from volforecast.ingest.equity import effective_fetch_start
+
+        assert effective_fetch_start(tmp_path / "missing.parquet", "2022-01-01") == "2022-01-01"
+
+    def test_later_requested_start_is_overridden_by_stored_inception(self, tmp_path: Path) -> None:
+        """A --start AFTER the stored inception must be ignored: fetch from the
+        stored first date so keep='last' rewrites every stored row on the
+        current adjustment basis (no mixed-basis seam)."""
+        from volforecast.ingest.equity import effective_fetch_start
+
+        df = _make_spy_df(5)  # starts 2022-01-03
+        path = tmp_path / "SPY.parquet"
+        df.to_parquet(path)
+
+        assert effective_fetch_start(path, "2023-06-01") == "2022-01-03"
+
+    def test_earlier_requested_start_wins(self, tmp_path: Path) -> None:
+        """A --start BEFORE the stored inception extends the history backwards."""
+        from volforecast.ingest.equity import effective_fetch_start
+
+        df = _make_spy_df(5)  # starts 2022-01-03
+        path = tmp_path / "SPY.parquet"
+        df.to_parquet(path)
+
+        assert effective_fetch_start(path, "2020-01-01") == "2020-01-01"
+
+    def test_pipeline_refetches_equity_from_stored_inception(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """_ingest_single_asset must call the equity downloader with the stored
+        inception date even when the run was started with a later --start."""
+        import exchange_calendars as xcals
+
+        from volforecast import cli
+        from volforecast.config import processed_path, raw_path
+
+        # Clean equity frame over real XNYS sessions (passes the session gate)
+        xnys = xcals.get_calendar("XNYS")
+        sessions = xnys.sessions_in_range("2022-01-03", "2022-01-14")
+        idx = sessions.tz_localize("UTC")
+        n = len(idx)
+        clean_df = pd.DataFrame(
+            {
+                "open": [150.0 + i * 0.3 for i in range(n)],
+                "high": [155.0 + i * 0.3 for i in range(n)],
+                "low": [148.0 + i * 0.3 for i in range(n)],
+                "close": [152.0 + i * 0.5 for i in range(n)],
+                "volume": [1_000_000.0 + i * 1000 for i in range(n)],
+            },
+            index=idx,
+        )
+        clean_df.index.name = "date"
+
+        asset = {"symbol": "SPY", "asset_class": "equity", "exchange": "nasdaq"}
+        out_path = raw_path(asset, data_root=tmp_path / "data")
+        proc_path = processed_path(asset, data_root=tmp_path / "data")
+        quarantine_dir = tmp_path / "data" / "quarantine"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+
+        # Stored raw history begins 2022-01-03 (the inception date)
+        clean_df.to_parquet(out_path)
+
+        captured_start: list[str] = []
+
+        def fake_download(tickers, start, end):  # noqa: ANN001, ANN202
+            captured_start.append(start)
+            return {"SPY": clean_df}
+
+        import volforecast.ingest.equity as equity_mod
+
+        monkeypatch.setattr(equity_mod, "download_equity_ohlcv", fake_download)
+
+        # Re-run with a LATER --start — must be overridden by stored inception
+        rc = cli._ingest_single_asset(
+            asset=asset,
+            since_ms=int(pd.Timestamp("2022-06-01", tz="UTC").timestamp() * 1000),
+            exchange_id="nasdaq",
+            start="2022-06-01",
+            out_path=out_path,
+            processed_out_path=proc_path,
+            quarantine_path=quarantine_dir / "SPY_quarantine.csv",
+        )
+
+        assert rc == 0, f"Clean equity re-run must succeed, got rc={rc}"
+        assert captured_start == ["2022-01-03"], (
+            f"Equity fetch must restart from the stored inception date "
+            f"(2022-01-03), got {captured_start}"
+        )
