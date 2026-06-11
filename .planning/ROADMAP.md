@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Validated Data** - Reproducible local stack (package, compose, CI) ingesting and validating 2+ years of crypto + equity OHLCV under DVC (completed 2026-06-10)
 - [x] **Phase 2: Features, Target & Classical Baselines** - Documented RV target, single feature codepath, and a leak-free walk-forward harness scoring EWMA/GARCH/HAR-RV (completed 2026-06-11)
-- [ ] **Phase 3: ML Challenger & Serving** - MLflow-tracked LightGBM benchmarked on identical folds, served via Dockerized FastAPI with an append-only prediction log
+- [x] **Phase 3: ML Challenger & Serving** - MLflow-tracked LightGBM benchmarked on identical folds, served via Dockerized FastAPI with an append-only prediction log (completed 2026-06-11)
 - [ ] **Phase 4: Monitoring, Orchestration & Retraining** - Closed feedback loop: auto labels, drift detection, alerting, Prefect DAG, QLIKE-gated champion/challenger promotion
 - [ ] **Phase 5: Dashboard & Honest Documentation** - Streamlit observability dashboard, MODEL_CARD.md with regime-segmented honest results, README with architecture diagram
 
@@ -72,7 +72,7 @@ Plans:
 - [x] 03-01-PLAN.md — Foundation: add lightgbm/shap/fastapi/uvicorn, switch MLflow to --serve-artifacts, log-variance transforms + leak-free pooled fold assembly (models/lgbm.py)
 - [x] 03-02-PLAN.md — Pooled LightGBM training (inner-val grid search), MLflow tracking + volforecast-lgbm@champion registry alias, SHAP artifacts
 - [x] 03-03-PLAN.md — ml_vs_baselines report: ML-vs-EWMA/GARCH/HAR per asset and per regime (vol terciles + year), honest losses stated plainly
-- [ ] 03-04-PLAN.md — FastAPI serving (champion @startup, /health, /forecast, /forecast/{symbol}), atomic prediction log, Dockerfile + docker-compose api service
+- [x] 03-04-PLAN.md — FastAPI serving (champion @startup, /health, /forecast, /forecast/{symbol}), atomic prediction log, Dockerfile + docker-compose api service
 
 ### Phase 4: Monitoring, Orchestration & Retraining
 **Goal**: The system closes its feedback loop — auto-arriving realized vol labels logged forecasts, drift and performance degradation raise alerts and trigger retraining, and promotion is gated on rolling QLIKE with rollback as an alias flip
@@ -108,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
 | 2. Features, Target & Classical Baselines | 4/4 | Complete   | 2026-06-11 |
-| 3. ML Challenger & Serving | 3/4 | In Progress|  |
+| 3. ML Challenger & Serving | 4/4 | Complete   | 2026-06-11 |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
 | 5. Dashboard & Honest Documentation | 0/TBD | Not started | - |
 
