@@ -27,6 +27,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+
 from volforecast.reports.baseline import generate_baseline_report  # RED: fails here
 
 # ---------------------------------------------------------------------------
@@ -200,9 +201,7 @@ class TestGenerateBaselineReport:
 
         for row in rows:
             n = int(row["n_forecasts"])
-            assert n > 0, (
-                f"n_forecasts must be > 0, got {n} for asset={row['asset']}"
-            )
+            assert n > 0, f"n_forecasts must be > 0, got {n} for asset={row['asset']}"
 
     def test_metrics_are_numeric(self, two_asset_setup):
         """RMSE, MAE, QLIKE must be finite floats >= 0."""
@@ -241,6 +240,4 @@ class TestGenerateBaselineReport:
             rows = list(reader)
 
         for row in rows:
-            assert row["model"] == "EWMA", (
-                f"Expected model='EWMA', got '{row['model']}'"
-            )
+            assert row["model"] == "EWMA", f"Expected model='EWMA', got '{row['model']}'"

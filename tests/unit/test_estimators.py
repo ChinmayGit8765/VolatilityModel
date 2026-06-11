@@ -147,7 +147,7 @@ class TestRealizedVar:
 
     def test_values_match_formula(self) -> None:
         """rv[t] == mean(r[t-w+1]^2, ..., r[t]^2)."""
-        close = _close([100.0 * (1.01 ** i) for i in range(30)])
+        close = _close([100.0 * (1.01**i) for i in range(30)])
         lr = log_returns(close)
         window = 5
         rv = realized_var(lr, window=window)
@@ -156,7 +156,7 @@ class TestRealizedVar:
 
     def test_right_aligned(self) -> None:
         """rv[t] must only use data up to and including t (no look-ahead)."""
-        close = _close([100.0 * (1.005 ** i) for i in range(50)])
+        close = _close([100.0 * (1.005**i) for i in range(50)])
         lr = log_returns(close)
         window = 5
         rv = realized_var(lr, window=window)
@@ -236,7 +236,7 @@ class TestEwmaVariance:
 
     def test_ewm_adjust_false_explicitly(self) -> None:
         """Verify adjust=True gives DIFFERENT results (confirming adjust=False is active)."""
-        close = _close([100.0 * (1.01 ** i) for i in range(30)])
+        close = _close([100.0 * (1.01**i) for i in range(30)])
         lr = log_returns(close)
         result_correct = ewma_variance(lr)
         result_wrong = lr.pow(2).ewm(alpha=1 - EWMA_LAMBDA, adjust=True).mean()

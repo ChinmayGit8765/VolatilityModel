@@ -58,9 +58,7 @@ class TestComputeTarget:
         for i in range(len(prices) - 1):
             expected = (np.log(prices[i + 1] / prices[i])) ** 2
             actual = float(target.iloc[i])
-            assert abs(actual - expected) < 1e-14, (
-                f"Row {i}: expected {expected}, got {actual}"
-            )
+            assert abs(actual - expected) < 1e-14, f"Row {i}: expected {expected}, got {actual}"
 
     def test_units_are_decimal_variance(self) -> None:
         """For typical daily equity returns (~1%), target values should be ~1e-4.
@@ -92,9 +90,7 @@ class TestComputeTarget:
         close = self._make_close([], n=20)
         target = compute_target(close, horizon=5)
         # At minimum the last `horizon` rows should be NaN
-        assert target.iloc[-5:].isna().all(), (
-            "With horizon=5, last 5 rows must be NaN"
-        )
+        assert target.iloc[-5:].isna().all(), "With horizon=5, last 5 rows must be NaN"
 
     def test_no_lookahead_nan_fill(self) -> None:
         """NaN at the tail must NOT be filled with zero — Pitfall 4 guard."""
@@ -137,7 +133,7 @@ class TestForwardRealizedVar:
         result = forward_realized_var(close, window=3)
 
         log_returns = np.log(np.array(prices[1:]) / np.array(prices[:-1]))
-        sq_returns = log_returns ** 2
+        sq_returns = log_returns**2
 
         # Row 0 should be mean of sq_returns[0], sq_returns[1], sq_returns[2]
         expected_row0 = np.mean(sq_returns[:3])

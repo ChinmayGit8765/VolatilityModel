@@ -88,9 +88,7 @@ class TestPurge:
         splits = list(walk_forward_splits(n=600, min_train=252, step=21, horizon=horizon))
         for i, split in enumerate(splits):
             gap = split.test_idx.min() - split.train_idx.max()
-            assert gap >= horizon, (
-                f"Split {i}: purge insufficient — gap={gap} < horizon={horizon}"
-            )
+            assert gap >= horizon, f"Split {i}: purge insufficient — gap={gap} < horizon={horizon}"
 
     def test_purge_train_end_formula(self) -> None:
         """train_end == test_start - horizon (exact formula from harness docs)."""
@@ -173,8 +171,7 @@ class TestNoRandomSplit:
         for i, split in enumerate(splits):
             expected = np.arange(0, split.train_idx.max() + 1)
             assert np.array_equal(split.train_idx, expected), (
-                f"Split {i}: train_idx is not a contiguous range "
-                f"[0..{split.train_idx.max()}]"
+                f"Split {i}: train_idx is not a contiguous range [0..{split.train_idx.max()}]"
             )
 
     def test_test_indices_are_contiguous(self) -> None:
@@ -209,6 +206,4 @@ class TestWalkForwardSplitDataclass:
     def test_no_splits_for_small_n(self) -> None:
         """When n is too small for even one split, the generator yields nothing."""
         splits = list(walk_forward_splits(n=100, min_train=252, step=21, horizon=1))
-        assert len(splits) == 0, (
-            f"Expected no splits for n=100 < min_train=252; got {len(splits)}"
-        )
+        assert len(splits) == 0, f"Expected no splits for n=100 < min_train=252; got {len(splits)}"

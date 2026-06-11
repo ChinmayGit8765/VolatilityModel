@@ -96,8 +96,7 @@ class TestNoLookAhead:
         for t in range(2, len(lr)):
             if not np.isnan(forecasts.iloc[t]) and not np.isnan(ewma_vals.iloc[t - 1]):
                 assert abs(forecasts.iloc[t] - ewma_vals.iloc[t - 1]) < 1e-14, (
-                    f"At t={t}: forecast={forecasts.iloc[t]}, "
-                    f"ewma[t-1]={ewma_vals.iloc[t-1]}"
+                    f"At t={t}: forecast={forecasts.iloc[t]}, ewma[t-1]={ewma_vals.iloc[t - 1]}"
                 )
 
     def test_first_two_forecasts_are_nan(self) -> None:
@@ -242,6 +241,4 @@ class TestWalkForwardCompatibility:
         fc_97 = EWMA(lam=0.97).forecast_path(lr)
 
         # They should differ — higher lambda gives more weight to old variance
-        assert not fc_94.equals(fc_97), (
-            "lam=0.94 and lam=0.97 should produce different forecasts"
-        )
+        assert not fc_94.equals(fc_97), "lam=0.94 and lam=0.97 should produce different forecasts"

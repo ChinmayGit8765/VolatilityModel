@@ -25,9 +25,7 @@ class TestQlikePerfectForecast:
         """qlike(x, x) == 0 for typical daily equity variance values."""
         x = np.array([0.001, 0.002, 0.0005])
         result = qlike(x, x)
-        assert abs(result) < 1e-12, (
-            f"qlike(x, x) must equal 0 within 1e-12; got {result}"
-        )
+        assert abs(result) < 1e-12, f"qlike(x, x) must equal 0 within 1e-12; got {result}"
 
     def test_qlike_perfect_forecast_single(self) -> None:
         """qlike on a single element must also equal 0 at perfect forecast."""
@@ -39,9 +37,7 @@ class TestQlikePerfectForecast:
         for scale in [1e-6, 1e-4, 1e-2, 1.0]:
             x = np.array([scale, scale * 2, scale * 0.5])
             result = qlike(x, x)
-            assert abs(result) < 1e-12, (
-                f"qlike(x, x) failed at scale {scale}: got {result}"
-            )
+            assert abs(result) < 1e-12, f"qlike(x, x) failed at scale {scale}: got {result}"
 
 
 class TestQlikeAsymmetry:
@@ -53,9 +49,7 @@ class TestQlikeAsymmetry:
         b = np.array([0.0008, 0.0025, 0.001])
         q_ab = qlike(a, b)
         q_ba = qlike(b, a)
-        assert q_ab != q_ba, (
-            f"qlike(a, b) == qlike(b, a) = {q_ab:.6f}; QLIKE must be asymmetric"
-        )
+        assert q_ab != q_ba, f"qlike(a, b) == qlike(b, a) = {q_ab:.6f}; QLIKE must be asymmetric"
 
 
 class TestQlikeNonNegativity:
