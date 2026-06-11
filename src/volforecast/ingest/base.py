@@ -72,6 +72,36 @@ def candles_to_df(candles: list[list]) -> pd.DataFrame:
     return df
 
 
+def merge_bars(existing_path: Path | str, new_bars: pd.DataFrame) -> pd.DataFrame:
+    """Merge new_bars with the data stored at existing_path WITHOUT writing.
+
+    Pure merge-dedupe-sort: read the existing parquet (if any), concat new bars,
+    deduplicate keeping the last (newest) value per date, and sort by date.
+    Nothing is written to disk — callers that must gate the stored dataset
+    (e.g. validate_asset on the merged frame) use this to build the candidate
+    frame, validate it, and only then persist it.
+
+    Args:
+        existing_path: Path to the existing parquet file. May not exist (first run).
+        new_bars: DataFrame with canonical OHLCV columns and tz-aware UTC DatetimeIndex.
+
+    Returns:
+        The merged, deduplicated, date-sorted DataFrame.
+    """
+    existing_path = Path(existing_path)
+
+    if existing_path.exists():
+        existing = pd.read_parquet(existing_path)
+        combined = pd.concat([existing, new_bars])
+    else:
+        combined = new_bars.copy()
+
+    # Deduplicate: keep the last occurrence (new_bars wins over existing for same date)
+    combined = combined[~combined.index.duplicated(keep="last")]
+    combined.sort_index(inplace=True)
+    return combined
+
+
 def incremental_update(existing_path: Path, new_bars: pd.DataFrame) -> pd.DataFrame:
     """Merge new_bars into an existing parquet; deduplicate on the date index.
 
@@ -96,14 +126,6 @@ def incremental_update(existing_path: Path, new_bars: pd.DataFrame) -> pd.DataFr
     existing_path = Path(existing_path)
     existing_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if existing_path.exists():
-        existing = pd.read_parquet(existing_path)
-        combined = pd.concat([existing, new_bars])
-    else:
-        combined = new_bars.copy()
-
-    # Deduplicate: keep the last occurrence (new_bars wins over existing for same date)
-    combined = combined[~combined.index.duplicated(keep="last")]
-    combined.sort_index(inplace=True)
+    combined = merge_bars(existing_path, new_bars)
     combined.to_parquet(existing_path)
     return combined

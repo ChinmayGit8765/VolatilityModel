@@ -82,8 +82,10 @@ def _ingest_single_asset(
     Pipeline:
       1. Fetch raw OHLCV from adapter (crypto or equity)
       2. Write raw parquet to out_path (unconditional; raw is always written)
-      3. Run validate_asset gate — BOTH crypto and equity schemas
-      4. On validation success: write validated df to processed_out_path
+      3. Merge the new batch with the existing processed parquet (no write) and
+         run the validate_asset gate on the MERGED frame — the dataset that will
+         actually live in data/processed/, not just the fresh batch
+      4. On validation success: write the validated merged frame to processed_out_path
       5. On validation failure: quarantine file written, no processed parquet
 
     Returns 0 on success (both raw and processed written), 1 on any error.
@@ -92,7 +94,7 @@ def _ingest_single_asset(
     """
     from pandera.errors import SchemaErrors
 
-    from volforecast.ingest.base import incremental_update
+    from volforecast.ingest.base import incremental_update, merge_bars
     from volforecast.validate import ValidationError, validate_asset
 
     symbol = asset["symbol"]
@@ -142,11 +144,17 @@ def _ingest_single_asset(
     raw_result = incremental_update(out_path, df)
     print(f"  Raw: stored {len(raw_result)} rows through {raw_result.index.max().date()}.")
 
-    # ── Step 3: validate_asset gate (crypto + equity both go through here) ──
+    # ── Step 3: validate_asset gate on the MERGED stored dataset ────────────
+    # Gate the frame that will actually live in data/processed/, not just the
+    # freshly fetched batch (CR-02): merging before validating catches seam
+    # gaps between the stored history and the new batch (e.g. an exchange
+    # returning its first candle later than requested) and partial history
+    # left behind by a previously rejected run.
+    candidate = merge_bars(processed_out_path, df)
     quarantine_dir = quarantine_path.parent
-    print(f"  Validating ({asset_class} schema)...")
+    print(f"  Validating merged dataset ({asset_class} schema, {len(candidate)} rows)...")
     try:
-        validated_df = validate_asset(df, asset_class, quarantine_dir)
+        validated_df = validate_asset(candidate, asset_class, quarantine_dir)
     except (ValidationError, SchemaErrors) as e:
         print(
             f"  VALIDATION FAILED: {symbol} rejected — quarantine written to {quarantine_dir}",
@@ -163,8 +171,13 @@ def _ingest_single_asset(
         return 1
 
     # ── Step 4: Write processed parquet (only on validation success) ─────────
-    proc_result = incremental_update(processed_out_path, validated_df)
-    print(f"  Processed: stored {len(proc_result)} rows through {proc_result.index.max().date()}.")
+    # validated_df IS the merged dataset (validated above), so write it directly:
+    # everything in data/processed/ has passed the gates as a whole.
+    processed_out_path.parent.mkdir(parents=True, exist_ok=True)
+    validated_df.to_parquet(processed_out_path)
+    print(
+        f"  Processed: stored {len(validated_df)} rows through {validated_df.index.max().date()}."
+    )
     return 0
 
 
@@ -178,8 +191,9 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     being promoted to data/processed/.  The raw parquet is always written.
 
     Cache-first incremental: resume_since_ms computes the start of each crypto fetch
-    from the last stored date in the existing parquet, falling back to --start only when
-    the parquet does not exist.
+    from the last stored date in the existing PROCESSED (validated) parquet, falling
+    back to --start when no processed parquet exists yet (first run, or every prior
+    run was rejected by validation).
     """
     from volforecast.config import load_assets, processed_path, raw_path, symbol_slug
     from volforecast.ingest.crypto import resume_since_ms
@@ -235,9 +249,15 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
 
         print(f"\n[{asset_class.upper()}] {symbol} -> {out_path.relative_to(project_root)}")
 
-        # Cache-first for crypto: resume from last stored date if parquet exists
+        # Cache-first for crypto: resume from the last VALIDATED date (processed
+        # parquet), not the raw parquet (CR-02).  If a previous run was rejected
+        # by validation, raw is ahead of processed; resuming from raw would
+        # permanently skip the rejected window in "validated" data.  Resuming
+        # from the processed frontier re-fetches that window so the merged
+        # dataset can be re-validated as a whole (incremental_update dedupes
+        # any overlap with raw).
         if asset_class == "crypto":
-            since_ms = resume_since_ms(out_path, default_since_ms)
+            since_ms = resume_since_ms(processed_out_path, default_since_ms)
         else:
             since_ms = default_since_ms
 
