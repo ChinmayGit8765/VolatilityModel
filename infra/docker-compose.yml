@@ -107,6 +107,33 @@ services:
     # and restart: unless-stopped turns that into a crash loop.
     command: prefect worker start --pool local-pool --type process
 
+  api:
+    # Serving image: python:3.12-slim + libgomp1 (required by LightGBM) + uv sync
+    build:
+      context: ..
+      dockerfile: infra/api/Dockerfile
+    restart: unless-stopped
+    # Wait for MLflow to be started before bringing up the API.
+    # mlflow-server has no healthcheck so we use service_started (Pattern 9).
+    depends_on:
+      mlflow-server:
+        condition: service_started
+    # Loopback-only: matches the security posture of the rest of the stack (T-03-12).
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      # API container reaches MLflow via compose internal DNS (not localhost)
+      MLFLOW_TRACKING_URI: "http://mlflow-server:5000"
+      # Prediction log written to the bind-mounted data volume (Pitfall 7)
+      PREDICTION_LOG_PATH: "/data/predictions/predictions.parquet"
+    volumes:
+      # Bind-mount the host data/ dir so the container can:
+      #   - READ:  data/processed/ + data/features/ for feature computation
+      #   - WRITE: data/predictions/predictions.parquet (Phase 4 log contract)
+      # Note: NO mlflow_artifacts mount needed — Plan 03-01 enables --serve-artifacts
+      # proxy mode so the tracking server proxies artifacts over HTTP (Pitfall 4 resolved).
+      - ../data:/data
+
 volumes:
   postgres_data:
   mlflow_artifacts:
