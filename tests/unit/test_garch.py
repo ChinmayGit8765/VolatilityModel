@@ -256,6 +256,88 @@ class TestGarchFitExceptions:
 
 
 # ------------------------------------------------------------------ #
+# 5c. Narrow exception handling — no bug laundering (WR-04)
+# ------------------------------------------------------------------ #
+
+
+class TestGarchNoBugLaundering:
+    def test_real_bug_propagates_not_laundered(self, monkeypatch):
+        """WR-04 regression: a non-fit-quality exception (a real bug, e.g.
+        TypeError) must PROPAGATE out of forecast_path — never silently
+        converted into a 'fallback'."""
+        import pytest
+
+        import volforecast.models.garch as garch_mod
+
+        def _buggy_fit(train_slice):
+            raise TypeError("real bug: bad argument type (test)")
+
+        monkeypatch.setattr(garch_mod, "fit_garch", _buggy_fit)
+
+        r = _make_returns(N_TRAIN + N_STEP)
+        model = GARCH(min_train=N_TRAIN, step=N_STEP)
+        with pytest.raises(TypeError, match="real bug"):
+            model.forecast_path(r)
+        assert model.fallback_count == 0, "a real bug must not count as a fallback"
+
+    def test_linalg_error_triggers_fallback(self, monkeypatch):
+        """np.linalg.LinAlgError (arch numerical failure) IS a legitimate
+        fallback trigger alongside the GarchFitError family."""
+        import volforecast.models.garch as garch_mod
+
+        def _numerical_failure(train_slice):
+            raise np.linalg.LinAlgError("singular matrix (test)")
+
+        monkeypatch.setattr(garch_mod, "fit_garch", _numerical_failure)
+
+        r = _make_returns(N_TRAIN + N_STEP)
+        model = GARCH(min_train=N_TRAIN, step=N_STEP)
+        forecasts = model.forecast_path(r)
+        assert model.fallback_count == 1
+        assert forecasts.iloc[N_TRAIN:].notna().all()
+
+    def test_fit_garch_does_not_suppress_unrelated_warnings(self):
+        """WR-04: the warnings filter inside fit_garch must be scoped to
+        arch's categories — a blanket simplefilter('ignore') would also
+        swallow unrelated warnings raised while the filter is active."""
+        import warnings
+
+        import volforecast.models.garch as garch_mod
+
+        # Wrap arch_model.fit via fit_garch by emitting an unrelated warning
+        # inside the fit call: patch arch_model so its fit() warns.
+        real_fit_garch = garch_mod.fit_garch
+        r = _make_returns(N_TRAIN)
+
+        from arch import arch_model as real_arch_model
+
+        class _WarningModel:
+            def __init__(self, *args, **kwargs):
+                self._inner = real_arch_model(*args, **kwargs)
+
+            def fit(self, *args, **kwargs):
+                warnings.warn("unrelated deprecation (test)", DeprecationWarning, stacklevel=2)
+                return self._inner.fit(*args, **kwargs)
+
+        import arch
+
+        original = arch.arch_model
+        try:
+            arch.arch_model = _WarningModel
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                real_fit_garch(r)
+        finally:
+            arch.arch_model = original
+
+        messages = [str(w.message) for w in caught]
+        assert any("unrelated deprecation" in m for m in messages), (
+            "fit_garch blanket-suppressed an unrelated warning — the filter "
+            f"must be scoped to arch categories only (caught: {messages})"
+        )
+
+
+# ------------------------------------------------------------------ #
 # 6. GARCH class interface (mirrors EWMA.forecast_path)
 # ------------------------------------------------------------------ #
 

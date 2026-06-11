@@ -24,11 +24,14 @@ Walk-forward refit contract (Pitfall 5):
     The h.1..h.step variance columns are extracted and de-scaled to decimal.
 
 Fallback contract (Open Question #1):
-    If a refit fails convergence (convergence_flag != 0) or stationarity
-    (alpha+beta >= 1.0), the model falls back to:
+    If a refit fails convergence (GarchConvergenceError), stationarity
+    (GarchNonStationaryError), or a numerical linear-algebra step
+    (np.linalg.LinAlgError), the model falls back to:
     1. The previous window's fitted params (reuse last ARCHModelResult).
     2. EWMA forecast for that window's test days (if no prior fit exists).
     Each fallback increments ``self.fallback_count`` (report transparency).
+    Any OTHER exception type is a real bug and propagates — it is never
+    laundered into a fallback (WR-04).
 
 Lazy import:
     ``arch`` is imported inside functions/class methods — not at module load
@@ -121,13 +124,23 @@ def fit_garch(log_returns_decimal: pd.Series):  # -> ARCHModelResult
         GarchNonStationaryError: If alpha + beta >= 1.0.
     """
     from arch import arch_model  # lazy import
+    from arch.utility.exceptions import (  # lazy import
+        ConvergenceWarning,
+        DataScaleWarning,
+        StartingValueWarning,
+    )
 
     clean = log_returns_decimal.dropna()
     scaled = GARCH_SCALE * clean
 
     am = arch_model(scaled, mean="Zero", vol="GARCH", p=1, q=1, rescale=False)
+    # Scope the suppression to arch's own fit-chatter categories (WR-04).
+    # A blanket simplefilter("ignore") would also swallow unrelated warnings
+    # (NumPy/pandas deprecations, RuntimeWarnings from genuine bugs).
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+        warnings.simplefilter("ignore", ConvergenceWarning)
+        warnings.simplefilter("ignore", DataScaleWarning)
+        warnings.simplefilter("ignore", StartingValueWarning)
         res = am.fit(disp="off")
 
     if res.convergence_flag != 0:
@@ -261,14 +274,15 @@ class GARCH:
             # the information set (CR-01 alignment fix).
             train_slice = log_returns_series.iloc[: pos + 1]
 
-            # Attempt fit — only fit-quality failures (WR-03 exceptions)
+            # Attempt fit — only fit-quality failures (WR-03 exceptions) and
+            # arch/numerical errors (LinAlgError from the optimizer/hessian)
             # trigger the fallback chain; anything else is a real bug and
-            # propagates (see WR-04).
+            # propagates instead of being laundered into a "fallback" (WR-04).
             fitted_res = None
             try:
                 fitted_res = fit_garch(train_slice)
                 last_res = fitted_res
-            except GarchFitError as exc:
+            except (GarchFitError, np.linalg.LinAlgError) as exc:
                 log.warning(
                     "GARCH refit at pos=%d failed (%s: %s) — using fallback",
                     pos,
@@ -282,10 +296,12 @@ class GARCH:
                 # Primary: multi-step variance from this fit
                 var_decimal = garch_forecast_variance_decimal(fitted_res, horizon=horizon)
             elif last_res is not None:
-                # Fallback 1: re-use previous successful fit's forecast
+                # Fallback 1: re-use previous successful fit's forecast.
+                # Catch only numerical/value errors from arch's forecast
+                # recursion — not Exception (WR-04: no bug laundering).
                 try:
                     var_decimal = garch_forecast_variance_decimal(last_res, horizon=horizon)
-                except Exception as exc2:  # noqa: BLE001
+                except (ValueError, np.linalg.LinAlgError) as exc2:
                     log.warning(
                         "Fallback re-forecast also failed (%s) — using EWMA",
                         exc2,
