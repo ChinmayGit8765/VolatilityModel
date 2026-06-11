@@ -60,12 +60,8 @@ def main() -> None:
     # then use BTC RV as a cross-asset source for other assets.
     log.info("Building base features for cross-asset sources...")
 
-    btc_sym = next(
-        (a["symbol"] for a in assets if "BTC" in a["symbol"].upper()), None
-    )
-    eth_sym = next(
-        (a["symbol"] for a in assets if "ETH" in a["symbol"].upper()), None
-    )
+    btc_sym = next((a["symbol"] for a in assets if "BTC" in a["symbol"].upper()), None)
+    eth_sym = next((a["symbol"] for a in assets if "ETH" in a["symbol"].upper()), None)
 
     btc_base_feats: pd.DataFrame | None = None
     eth_base_feats: pd.DataFrame | None = None
@@ -83,7 +79,7 @@ def main() -> None:
     # --- Step 3: Build full features for each asset with GARCH + cross-asset ---
     for asset in assets:
         sym = asset["symbol"]
-        slug = symbol_slug(sym)
+        symbol_slug(sym)
         asset_class = asset["asset_class"]
 
         log.info("Building full features for %s (%s)...", sym, asset_class)
@@ -93,15 +89,11 @@ def main() -> None:
 
         if btc_base_feats is not None and sym != btc_sym:
             # Attach BTC RV_22 as a cross-asset feature for all non-BTC assets
-            cross_asset_dfs["BTC"] = btc_base_feats[["rv_22"]].rename(
-                columns={"rv_22": "btc_rv22"}
-            )
+            cross_asset_dfs["BTC"] = btc_base_feats[["rv_22"]].rename(columns={"rv_22": "btc_rv22"})
 
         if eth_base_feats is not None and sym == btc_sym:
             # Attach ETH RV_22 as a cross-asset feature for BTC
-            cross_asset_dfs["ETH"] = eth_base_feats[["rv_22"]].rename(
-                columns={"rv_22": "eth_rv22"}
-            )
+            cross_asset_dfs["ETH"] = eth_base_feats[["rv_22"]].rename(columns={"rv_22": "eth_rv22"})
 
         df = raw[sym]
         result = build_features(
@@ -121,12 +113,23 @@ def main() -> None:
         )
 
         # Quick sanity check
-        expected_cols = {"rv_5", "rv_22", "rv_66", "ewma_var", "garch_cond_var", "parkinson_var", "gk_var"}
+        expected_cols = {
+            "rv_5",
+            "rv_22",
+            "rv_66",
+            "ewma_var",
+            "garch_cond_var",
+            "parkinson_var",
+            "gk_var",
+        }
         missing = expected_cols - set(result.columns)
         if missing:
             log.error("Missing expected columns for %s: %s", sym, missing)
             sys.exit(1)
-        log.info("  Column check passed. Total non-NaN garch_cond_var: %d", result["garch_cond_var"].notna().sum())
+        log.info(
+            "  Column check passed. Total non-NaN garch_cond_var: %d",
+            result["garch_cond_var"].notna().sum(),
+        )
 
     log.info("All 5 feature parquets generated successfully.")
 
