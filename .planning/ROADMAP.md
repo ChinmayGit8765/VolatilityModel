@@ -13,7 +13,7 @@ VolForecast goes from empty repo to a closed-loop volatility forecasting platfor
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Validated Data** - Reproducible local stack (package, compose, CI) ingesting and validating 2+ years of crypto + equity OHLCV under DVC (completed 2026-06-10)
-- [ ] **Phase 2: Features, Target & Classical Baselines** - Documented RV target, single feature codepath, and a leak-free walk-forward harness scoring EWMA/GARCH/HAR-RV
+- [x] **Phase 2: Features, Target & Classical Baselines** - Documented RV target, single feature codepath, and a leak-free walk-forward harness scoring EWMA/GARCH/HAR-RV (completed 2026-06-11)
 - [ ] **Phase 3: ML Challenger & Serving** - MLflow-tracked LightGBM benchmarked on identical folds, served via Dockerized FastAPI with an append-only prediction log
 - [ ] **Phase 4: Monitoring, Orchestration & Retraining** - Closed feedback loop: auto labels, drift detection, alerting, Prefect DAG, QLIKE-gated champion/challenger promotion
 - [ ] **Phase 5: Dashboard & Honest Documentation** - Streamlit observability dashboard, MODEL_CARD.md with regime-segmented honest results, README with architecture diagram
@@ -54,7 +54,7 @@ Plans:
 - [x] 02-01-PLAN.md — Foundation: add arch+statsmodels, canonical target.py, canonical metrics (QLIKE/RMSE/MAE), purged walk-forward harness + mandatory leak test
 - [x] 02-02-PLAN.md — First report slice: RV/return/EWMA estimators, EWMA baseline, report generator → committed reports/baseline_eval.md + CSV (per-asset EWMA bar)
 - [x] 02-03-PLAN.md — GARCH(1,1) + HAR-RV baselines on identical folds; extend the published report to all three baselines per asset
-- [ ] 02-04-PLAN.md — Single feature codepath build_features() (multi-lookback RV, EWMA, GARCH-as-feature, range estimators, vol-of-vol, skew/kurt, calendar, cross-asset as-of join) + no-lookahead test + 5 persisted feature parquet
+- [x] 02-04-PLAN.md — Single feature codepath build_features() (multi-lookback RV, EWMA, GARCH-as-feature, range estimators, vol-of-vol, skew/kurt, calendar, cross-asset as-of join) + no-lookahead test + 5 persisted feature parquet
 
 ### Phase 3: ML Challenger & Serving
 **Goal**: A tracked, explainable LightGBM challenger is benchmarked honestly against the classical bar on identical folds and served as next-day forecasts from a Dockerized API that logs every prediction
@@ -102,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
-| 2. Features, Target & Classical Baselines | 3/4 | In Progress|  |
+| 2. Features, Target & Classical Baselines | 4/4 | Complete   | 2026-06-11 |
 | 3. ML Challenger & Serving | 0/TBD | Not started | - |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
 | 5. Dashboard & Honest Documentation | 0/TBD | Not started | - |
