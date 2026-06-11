@@ -581,6 +581,13 @@ def evaluate_per_asset(
     scoring, so all metrics are on the VARIANCE scale — apples-to-apples
     comparison with ``reports/baseline_metrics.csv``.
 
+    Cross-asset column alignment: different assets have different cross-asset
+    feature columns (e.g. ``rv_22_eth`` for BTC, ``rv_22_btc`` for others).
+    The pooled training DataFrame includes all columns (NaN-padded for assets
+    that lack a cross-asset column).  At evaluation time, test DataFrames are
+    reindexed to the full union of feature columns so LightGBM receives the
+    same feature schema as during training.
+
     Args:
         model: Fitted LGBMRegressor (native model object, not pyfunc).
         asset_feature_dfs: Mapping symbol → feature DataFrame.
@@ -593,6 +600,16 @@ def evaluate_per_asset(
         Dict ``{symbol: {"rmse": ..., "mae": ..., "qlike": ...,
         "n_forecasts": ...}}``.
     """
+    # Build the full column union (all feature cols + 'asset') so that each
+    # asset's test DataFrame can be reindexed to match the training schema.
+    # Missing cross-asset columns are NaN-filled (same as in pooled training).
+    all_feat_cols: list[str] = []
+    for df in asset_feature_dfs.values():
+        for c in df.columns:
+            if c not in all_feat_cols:
+                all_feat_cols.append(c)
+    all_feat_cols_with_asset = all_feat_cols + ["asset"]
+
     results: dict[str, dict[str, float]] = {}
 
     for symbol, feat_df in asset_feature_dfs.items():
@@ -604,6 +621,11 @@ def evaluate_per_asset(
             test_idx = split.test_idx
             x_test = feat_df.iloc[test_idx].copy()
             x_test["asset"] = symbol
+            x_test["asset"] = x_test["asset"].astype(ASSET_DTYPE)
+
+            # Reindex to full column union (NaN-fill missing cross-asset cols)
+            x_test = x_test.reindex(columns=all_feat_cols_with_asset)
+            # Re-apply ASSET_DTYPE after reindex (reindex may lose category dtype)
             x_test["asset"] = x_test["asset"].astype(ASSET_DTYPE)
 
             # Compute realized variance (variance scale, not log)
