@@ -1,11 +1,12 @@
 #!/bin/bash
 # MLflow server entrypoint for docker-compose.
-# Installs psycopg2-binary and starts MLflow with --allowed-hosts '*'
-# to allow connections from the Docker host on Windows 11.
-# MLflow 3.x defaults to localhost-only; --allowed-hosts '*' opens it up.
+# Starts MLflow with --allowed-hosts '*' to allow connections from the Docker
+# host on Windows 11 (MLflow 3.x defaults to localhost-only).  The host port is
+# bound to 127.0.0.1 in docker-compose.yml, so this does not expose the server
+# beyond the local machine.
+# psycopg2-binary is baked into the image at build time (see mlflow/Dockerfile)
+# rather than pip-installed here, so startup never depends on PyPI.
 set -e
-
-pip install psycopg2-binary -q
 
 exec mlflow server \
   --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \

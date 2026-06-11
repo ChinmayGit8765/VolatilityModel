@@ -55,7 +55,11 @@ services:
       - "127.0.0.1:5433:5432"
 
   mlflow-server:
-    image: ghcr.io/mlflow/mlflow:v3.13.0
+    # Custom image: upstream MLflow image + pinned psycopg2-binary baked in at
+    # build time, so startup never depends on PyPI (WR-06). See mlflow/Dockerfile.
+    build:
+      context: ./mlflow
+    image: volforecast-mlflow:v3.13.0
     restart: unless-stopped
     depends_on:
       postgres:
