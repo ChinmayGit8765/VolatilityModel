@@ -221,6 +221,31 @@ if df.empty:
 
 ---
 
+## Fix Status
+
+Fix scope: all Critical and Warning findings (Info findings deferred).
+Every fix was verified with the full test suite (47 passed) and ruff check/format clean.
+
+| Finding | Severity | Status | Commit | Notes |
+|---------|----------|--------|--------|-------|
+| CR-01 | Critical | Fixed | 170aed3 | stale_row_check now flags consecutive runs (>5) instead of global duplicates; cent-quantized random-walk + 6-run + boundary tests added |
+| CR-02 | Critical | Fixed | 033ba46 | validate_asset now gates the MERGED processed frame (new merge_bars helper); crypto resume frontier moved from raw to processed parquet; seam-gap and post-rejection resume tests added |
+| WR-01 | Warning | Fixed | 86cebfa | Quarantine reports named {asset_class}_{slug}_{timestamp}.csv; CLI passes the symbol slug |
+| WR-02 | Warning | Fixed | 467692c | Docstring/comments rewritten to match the real contract: validation rejection ⇒ per-asset rc 1, loop continues, overall exit 1 |
+| WR-03 | Warning | Fixed | c89e2d3 | Empty yf.download result raises retryable OSError; retry filter narrowed to (OSError, ConnectionError); empty-retry + no-retry-on-TypeError tests added |
+| WR-04 | Warning | Fixed | a4affda | `prefect worker start --pool local-pool --type process` auto-creates the pool |
+| WR-05 | Warning | Fixed | 749e14b | All published ports bound to 127.0.0.1; POSTGRES_PASSWORD uses `:?` (required, no default) in all three references |
+| WR-06 | Warning | Fixed | 58f1fe9 | infra/mlflow/Dockerfile pins psycopg2-binary==2.9.10 at build time; entrypoint pip install removed |
+| WR-07 | Warning | Fixed | a3fa113 | config and data both resolve via project_root() (VOLFORECAST_ROOT env var, else cwd); load_assets raises clear FileNotFoundError |
+| WR-08 | Warning | Fixed | 04a2764 | Crypto branch skips empty fetches (rc 0, nothing written) mirroring the equity guard |
+| WR-09 | Warning | Fixed | 8333c6a | effective_fetch_start re-downloads equities from min(--start, stored inception) so merges never mix adjustment bases |
+| IN-01–IN-09 | Info | Deferred | — | Out of fix scope (Info tier); unchanged |
+
+_Fixed: 2026-06-11_
+_Fixer: Claude (gsd-code-fixer)_
+
+---
+
 _Reviewed: 2026-06-11T00:49:10Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
