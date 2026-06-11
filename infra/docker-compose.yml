@@ -86,7 +86,10 @@ services:
       - prefect-server
     environment:
       PREFECT_API_URL: "http://prefect-server:4200/api"
-    command: prefect worker start --pool local-pool
+    # --type process makes Prefect 3 auto-create the work pool on first start.
+    # Without it, the worker errors out because nothing else creates local-pool,
+    # and restart: unless-stopped turns that into a crash loop.
+    command: prefect worker start --pool local-pool --type process
 
 volumes:
   postgres_data:
