@@ -121,6 +121,14 @@ def _ingest_single_asset(
         except Exception as e:
             print(f"  ERROR fetching {symbol} from {exchange_id}: {e}", file=sys.stderr)
             return 1
+
+        # Mirror the equity empty guard (WR-08): a run started "today" returns
+        # only the still-forming candle, which is then dropped — without this
+        # guard an EMPTY raw AND processed parquet would be written (all checks
+        # pass vacuously on an empty frame) and the run would report success.
+        if df.empty:
+            print(f"  WARNING: {symbol} returned no closed candles — skipping.", file=sys.stderr)
+            return 0
     elif asset_class == "equity":
         from volforecast.ingest.equity import download_equity_ohlcv
 

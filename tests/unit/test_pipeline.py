@@ -325,3 +325,50 @@ def test_cmd_ingest_resumes_from_processed_frontier_after_rejection(
     assert len(proc_df) == len(fixture_df), (
         f"Processed must contain the full re-validated history: {len(proc_df)} != {len(fixture_df)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 5 (WR-08): crypto empty fetch is skipped, nothing is written
+# ---------------------------------------------------------------------------
+
+
+def test_pipeline_skips_empty_crypto_fetch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A crypto fetch returning no closed candles (e.g. a run started 'today'
+    where only the forming candle existed and was dropped) must be SKIPPED:
+    no raw parquet, no processed parquet, no quarantine, rc 0 (WR-08).
+    """
+    from volforecast import cli
+    from volforecast.config import processed_path, raw_path
+    from volforecast.ingest.base import candles_to_df
+
+    empty_df = candles_to_df([])
+    assert empty_df.empty
+
+    import volforecast.ingest.crypto as crypto_mod
+
+    monkeypatch.setattr(
+        crypto_mod,
+        "fetch_crypto_ohlcv",
+        lambda symbol, since_ms, exchange_id: empty_df,
+    )
+
+    asset = _asset("BTC/USDT", "crypto", "binance")
+    out_path = raw_path(asset, data_root=tmp_path / "data")
+    proc_path = processed_path(asset, data_root=tmp_path / "data")
+    quarantine_dir = tmp_path / "data" / "quarantine"
+    quarantine_dir.mkdir(parents=True, exist_ok=True)
+
+    rc = cli._ingest_single_asset(
+        asset=asset,
+        since_ms=int(pd.Timestamp("2022-01-01", tz="UTC").timestamp() * 1000),
+        exchange_id="binance",
+        start="2022-01-01",
+        out_path=out_path,
+        processed_out_path=proc_path,
+        quarantine_path=quarantine_dir / "BTC-USD_quarantine.csv",
+    )
+
+    assert rc == 0, f"Empty fetch is a skip, not an error; got rc={rc}"
+    assert not out_path.exists(), "Empty raw parquet must NOT be written"
+    assert not proc_path.exists(), "Empty processed parquet must NOT be written"
+    assert list(quarantine_dir.glob("*.csv")) == [], "Empty fetch must not quarantine"
