@@ -6,11 +6,17 @@
 # beyond the local machine.
 # psycopg2-binary is baked into the image at build time (see mlflow/Dockerfile)
 # rather than pip-installed here, so startup never depends on PyPI.
+#
+# --artifacts-destination + --serve-artifacts: artifact-proxy mode (Plan 03-01).
+# Clients (training scripts, serving container) upload/download artifacts via
+# HTTP through this tracking server.  No direct volume mount to mlflow_artifacts
+# is required from client-side containers.  Resolves Open Question #1 / A4.
 set -e
 
 exec mlflow server \
   --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
-  --default-artifact-root /mlflow/artifacts \
+  --artifacts-destination /mlflow/artifacts \
+  --serve-artifacts \
   --host 0.0.0.0 \
   --port 5000 \
   --allowed-hosts '*'
