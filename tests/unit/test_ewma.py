@@ -1,7 +1,8 @@
 """Unit tests for src/volforecast/models/ewma.py.
 
 Tests verify:
-- No-look-ahead: forecast at t uses only returns < t (shift(1) guarantee)
+- Alignment (CR-01): forecast at t uses returns <= t and targets RV[t+1]
+  (same information set as compute_target[t], which is defined as-of t)
 - Lambda configurability and defaults (0.94)
 - Forecast alignment to test indices from walk_forward_splits
 - Positivity and finiteness of forecasts
@@ -74,42 +75,52 @@ class TestEWMAConstruction:
 
 
 class TestNoLookAhead:
-    """Forecast at t must use only returns strictly before t."""
+    """Forecast at t targets RV[t+1] and must use only returns <= t (CR-01)."""
 
-    def test_forecast_is_shift_1_of_ewma(self) -> None:
-        """forecast_path(lr) == ewma_variance(lr, 0.94).shift(1) exactly."""
+    def test_forecast_is_ewma_variance_unshifted(self) -> None:
+        """forecast_path(lr) == ewma_variance(lr, 0.94) exactly (no extra shift).
+
+        The target compute_target[t] = RV[t+1] is as-of t, so the forecast at t
+        may use data up to and including t.  Under RiskMetrics the conditional
+        variance forecast for t+1 IS the EWMA level at t.
+        """
         close = _synthetic_close(50)
         lr = log_returns(close)
         model = EWMA()
         forecasts = model.forecast_path(lr)
-        expected = ewma_variance(lr, lam=0.94).shift(1)
+        expected = ewma_variance(lr, lam=0.94)
         pd.testing.assert_series_equal(forecasts, expected)
 
-    def test_forecast_at_t_equals_ewma_at_t_minus_1(self) -> None:
-        """For each t >= 2, forecast[t] == ewma_variance(lr)[t-1]."""
+    def test_forecast_at_t_equals_ewma_at_t(self) -> None:
+        """For each t >= 1, forecast[t] == ewma_variance(lr)[t] (data <= t)."""
         close = _synthetic_close(30)
         lr = log_returns(close)
         model = EWMA()
         forecasts = model.forecast_path(lr)
         ewma_vals = ewma_variance(lr, lam=0.94)
 
-        for t in range(2, len(lr)):
-            if not np.isnan(forecasts.iloc[t]) and not np.isnan(ewma_vals.iloc[t - 1]):
-                assert abs(forecasts.iloc[t] - ewma_vals.iloc[t - 1]) < 1e-14, (
-                    f"At t={t}: forecast={forecasts.iloc[t]}, ewma[t-1]={ewma_vals.iloc[t - 1]}"
+        for t in range(1, len(lr)):
+            if not np.isnan(forecasts.iloc[t]) and not np.isnan(ewma_vals.iloc[t]):
+                assert abs(forecasts.iloc[t] - ewma_vals.iloc[t]) < 1e-14, (
+                    f"At t={t}: forecast={forecasts.iloc[t]}, ewma[t]={ewma_vals.iloc[t]}"
                 )
 
-    def test_first_two_forecasts_are_nan(self) -> None:
-        """Positions 0 and 1 must be NaN (shift(1) of NaN at 0 propagates)."""
+    def test_first_forecast_is_nan(self) -> None:
+        """Position 0 must be NaN (no log return exists at index 0)."""
         close = _synthetic_close(20)
         lr = log_returns(close)
         model = EWMA()
         forecasts = model.forecast_path(lr)
         assert np.isnan(forecasts.iloc[0]), "forecast[0] must be NaN"
-        assert np.isnan(forecasts.iloc[1]), "forecast[1] must be NaN after shift"
+        # Position 1 is the first valid forecast (uses r[1], data <= t=1)
+        assert not np.isnan(forecasts.iloc[1]), "forecast[1] must be valid (uses r[1])"
 
     def test_no_future_data_used(self) -> None:
-        """Mutating returns at t+1..n does not affect forecast at t."""
+        """Mutating returns at t+1..n does not affect forecast at t.
+
+        forecast[t] predicts RV[t+1] using data <= t — it must be invariant
+        to any change in returns at positions strictly after t.
+        """
         close = _synthetic_close(30)
         lr = log_returns(close)
         model = EWMA()
@@ -121,9 +132,31 @@ class TestNoLookAhead:
         lr_modified.iloc[t_pivot + 1 :] = 1.0  # obviously wrong values
         forecasts_modified = model.forecast_path(lr_modified)
 
-        # forecast at t_pivot must be identical (uses only data < t_pivot+1)
+        # forecast at t_pivot must be identical (uses only data <= t_pivot)
         assert abs(forecasts_orig.iloc[t_pivot] - forecasts_modified.iloc[t_pivot]) < 1e-14, (
             "forecast at t_pivot changed when future data was modified — look-ahead detected"
+        )
+
+    def test_forecast_at_t_uses_return_at_t(self) -> None:
+        """Mutating r[t] MUST change forecast[t] — the as-of-t info set includes t.
+
+        This is the value-level half of the CR-01 alignment contract: the old
+        (misaligned) implementation shifted by one extra day so forecast[t]
+        ignored r[t], handicapping the baseline vs the as-of-t ML features.
+        """
+        close = _synthetic_close(30)
+        lr = log_returns(close)
+        model = EWMA()
+        forecasts_orig = model.forecast_path(lr)
+
+        t_pivot = 15
+        lr_modified = lr.copy()
+        lr_modified.iloc[t_pivot] = lr.iloc[t_pivot] + 0.05  # perturb r[t]
+        forecasts_modified = model.forecast_path(lr_modified)
+
+        assert abs(forecasts_orig.iloc[t_pivot] - forecasts_modified.iloc[t_pivot]) > 1e-12, (
+            "forecast at t did not change when r[t] was perturbed — "
+            "the forecast is not using the full as-of-t information set"
         )
 
 
@@ -181,7 +214,7 @@ class TestWalkForwardCompatibility:
         for split in splits:
             test_forecasts = forecasts.iloc[split.test_idx]
             # All test forecasts must be non-NaN (test positions are well beyond
-            # the first two NaN positions from shift(1))
+            # the single NaN position at index 0)
             assert test_forecasts.notna().all(), (
                 f"NaN forecast found in test window {split.test_idx}"
             )

@@ -192,7 +192,9 @@ class HARRV:
 
         The series is processed in expanding windows.  HAR is refit every
         ``step`` observations starting at position ``min_train``.  Each refit
-        generates one forecast for the next step days (one per test day).
+        generates one forecast per test day: forecast[t] applies the fitted
+        coefficients to the HAR components built from rv[<= t] (data up to and
+        including t), forecasting RV[t+1] = compute_target[t] (CR-01 alignment).
 
         Positions before the first refit (i.e. < min_train) receive NaN.
 
@@ -231,8 +233,10 @@ class HARRV:
 
             # Generate one-step-ahead forecasts for each test day
             for t in range(pos, test_end):
-                # Tail includes all observations up to and including t-1
-                tail = rv_daily.iloc[:t]
+                # Tail includes all observations up to AND INCLUDING t
+                # (data <= t).  forecast[t] is issued as-of t and targets
+                # RV[t+1] = compute_target[t] (CR-01 alignment fix).
+                tail = rv_daily.iloc[: t + 1]
                 if len(tail) < 22:
                     # Not enough history for rv_m — leave NaN
                     forecasts[t] = np.nan

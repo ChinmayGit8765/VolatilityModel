@@ -18,13 +18,20 @@ Interface contract:
     returns), so ``forecast_path`` is called once on the full return series and
     the baseline runner slices by walk-forward test indices.
 
-No-look-ahead guarantee:
-    ``forecast_path`` returns ``ewma_variance(log_returns, lam).shift(1)``.
+Alignment contract (CR-01):
+    The target is ``compute_target[t] = RV[t+1]`` — defined as-of t, using data
+    up to and including t.  ``forecast_path`` therefore returns
+    ``ewma_variance(log_returns, lam)`` with NO extra shift:
 
-    At each position t, this gives the EWMA variance computed from *all* log
-    returns strictly up to and including t-1 — the one-step-ahead forecast is
-    indexed at t but uses only data < t.  The shift(1) makes the guarantee
-    explicit and testable: the forecast at date t comes from ewma[t-1].
+    At each position t, ``forecast[t] = ewma[t]`` is the EWMA variance computed
+    from all log returns up to and including t — the one-step-ahead forecast of
+    RV[t+1] issued as-of t.  Under the RiskMetrics recursion the conditional
+    variance forecast for t+1 IS the EWMA level at t:
+    ``sigma2[t+1|t] = lam * sigma2[t|t-1] + (1 - lam) * r[t]^2 = ewma[t]``.
+
+    No data past t is used (the recursion is strictly causal), and the forecast
+    carries exactly the same information set as the Phase-3 ML features
+    (as-of t) — so the baseline-vs-ML comparison is fair.
 
 Units:
     - Input: decimal log returns (output of estimators.log_returns).
@@ -52,8 +59,9 @@ class EWMA:
     input log returns and the decay factor, requiring no per-fold refit.
 
     The ``forecast_path`` method returns the complete one-step-ahead variance
-    forecast series for the entire input, shift(1)-aligned so that the value at
-    index t uses only returns strictly before t (no look-ahead).
+    forecast series for the entire input: the value at index t is the forecast
+    of RV[t+1] issued as-of t, using only returns up to and including t
+    (no look-ahead past the as-of date).
 
     Args:
         lam: EWMA decay factor (lambda in the RiskMetrics recursion).
@@ -67,7 +75,8 @@ class EWMA:
 
         model = EWMA(lam=0.94)
         forecasts = model.forecast_path(log_returns_series)
-        # forecasts.iloc[t] uses only returns_series.iloc[:t]
+        # forecasts.iloc[t] uses only returns_series.iloc[:t+1] (data <= t)
+        # and is scored against RV[t+1] (compute_target[t])
     """
 
     def __init__(self, lam: float = EWMA_LAMBDA) -> None:
@@ -78,14 +87,15 @@ class EWMA:
     def forecast_path(self, log_returns_series: pd.Series) -> pd.Series:
         """Compute one-step-ahead EWMA variance forecasts for every date.
 
-        The forecast at position t is the EWMA variance computed from all log
-        returns up to and including position t-1.  This is implemented as:
+        The forecast at position t predicts RV[t+1] using the EWMA variance
+        computed from all log returns up to and including position t:
 
-            ewma_variance(log_returns, lam).shift(1)
+            forecast[t] = ewma_variance(log_returns, lam)[t]
 
-        The ``shift(1)`` makes the no-look-ahead property explicit: the value
-        at index t comes from the EWMA recursion at t-1, which uses only returns
-        r[0], ..., r[t-1].
+        This matches the target alignment (CR-01): ``compute_target[t] = RV[t+1]``
+        is defined as-of t, so the forecast issued at t may use data <= t.
+        Under RiskMetrics, the conditional variance forecast for t+1 equals the
+        EWMA level at t — no extra shift is applied.
 
         Args:
             log_returns_series: pd.Series of decimal log returns (e.g., from
@@ -96,13 +106,13 @@ class EWMA:
         Returns:
             pd.Series of one-step-ahead EWMA variance forecasts, same index as
             input.
-            - Index 0: NaN (shift(1) of EWMA[0])
-            - Index 1: NaN (shift(1) of EWMA[1] — propagated from NaN input)
-            - Index t >= 2: EWMA variance using returns r[0]..r[t-1]
+            - Index 0: NaN (propagated from the NaN first log return)
+            - Index t >= 1: EWMA variance using returns r[1]..r[t] (data <= t),
+              forecasting RV[t+1]
 
             Forecasts are positive and finite wherever the input is non-NaN.
             dtype=float64.
         """
-        ewma_vals = ewma_variance(log_returns_series, lam=self.lam)
-        # shift(1): forecast[t] = ewma[t-1] which uses only returns < t
-        return ewma_vals.shift(1)
+        # forecast[t] = ewma[t] uses returns <= t and predicts RV[t+1]
+        # (the target compute_target[t] = RV[t+1] is as-of t — same info set)
+        return ewma_variance(log_returns_series, lam=self.lam)

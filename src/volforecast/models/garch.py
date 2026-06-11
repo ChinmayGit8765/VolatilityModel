@@ -189,7 +189,11 @@ class GARCH:
 
         The series is processed in expanding windows.  GARCH is refit every
         ``step`` observations starting at position ``min_train``.  Each refit
-        generates ``step`` forward variance forecasts (one per test day).
+        at position ``pos`` trains on returns up to AND INCLUDING ``pos``
+        (data <= pos) and generates ``step`` forward variance forecasts
+        (one per test day): forecast[pos + k] is the (k+1)-step-ahead variance,
+        i.e. the forecast of RV[pos + k + 1], matching the target alignment
+        ``compute_target[t] = RV[t+1]`` (CR-01).
 
         Positions before the first refit (i.e. < min_train) receive NaN
         because no forecast can be produced without a minimum training window.
@@ -224,8 +228,11 @@ class GARCH:
             if horizon <= 0:
                 break
 
-            # Training slice: all returns up to (but not including) pos
-            train_slice = log_returns_series.iloc[:pos]
+            # Training slice: all returns up to AND INCLUDING pos (data <= pos).
+            # The forecast issued at position pos is as-of pos and targets
+            # RV[pos+1] (= compute_target[pos]), so r[pos] is legitimately in
+            # the information set (CR-01 alignment fix).
+            train_slice = log_returns_series.iloc[: pos + 1]
 
             # Attempt fit
             fitted_res = None
