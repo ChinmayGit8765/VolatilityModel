@@ -42,6 +42,9 @@ Cross-asset contract (FEAT-05):
     When ``cross_asset_dfs`` is provided, each source DataFrame is as-of-joined
     onto the target using ``cross_asset.as_of_join`` with a 3-day staleness cap.
     Source DataFrames should already contain the desired feature columns.
+    Joined columns are suffixed with the source's dict key (``{col}_{asset_name}``,
+    e.g. ``rv_22_btc``) so multiple sources sharing a feature name never collide
+    and column names are stable regardless of dict order (WR-01 / FEAT-07).
 
 Units:
     ALL output columns are decimal log-return VARIANCE (e.g. ~1e-4 for typical
@@ -180,7 +183,10 @@ def build_features(
             pre-computed cross-asset features.  Each DataFrame must have a
             tz-aware UTC DatetimeIndex named "date" and float64 columns.
             The most recent prior value is joined with a 3-day staleness cap
-            (NaN beyond).  Default None (no cross-asset features).
+            (NaN beyond).  Each source's columns are suffixed with its dict
+            key (``{col}_{asset_name}``) so identical feature names from
+            different sources stay distinct and asset-identifying (WR-01).
+            Default None (no cross-asset features).
         include_garch: If True (default), compute the GARCH(1,1) filtered
             conditional VARIANCE as a feature (``garch_cond_var``).  Setting
             to False skips the GARCH computation and omits ``garch_cond_var``
@@ -254,10 +260,14 @@ def build_features(
 
     # ---- 11. Cross-asset as-of join (optional) --------------------------------
     if cross_asset_dfs:
-        for _asset_name, source_df in cross_asset_dfs.items():
+        for asset_name, source_df in cross_asset_dfs.items():
             feature_cols = [c for c in source_df.columns if c != "date"]
             if not feature_cols:
                 continue
-            out = as_of_join(out, source_df, feature_cols=feature_cols)
+            # Suffix per SOURCE asset (WR-01): two sources sharing a feature
+            # name (e.g. both providing rv_22) must produce distinct, stable,
+            # asset-identifying columns (rv_22_btc, rv_22_eth) — never the
+            # dict-order-dependent pandas _x/_y collision names (FEAT-07).
+            out = as_of_join(out, source_df, feature_cols=feature_cols, suffix=f"_{asset_name}")
 
     return out

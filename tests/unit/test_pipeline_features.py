@@ -156,17 +156,17 @@ class TestGarchCondVar:
 
 class TestCrossAsset:
     def test_cross_asset_columns_present(self) -> None:
-        """When cross_asset_dfs is provided, cross-asset columns appear."""
+        """When cross_asset_dfs is provided, per-source-suffixed columns appear."""
         target = _ohlc(100)
         source = _ohlc(100)
         # Build source with same dates; rv_22 is a known feature
         source_features = build_features(source, include_garch=False)
         result = build_features(
             target,
-            cross_asset_dfs={"BTC": source_features[["rv_22"]]},
+            cross_asset_dfs={"btc": source_features[["rv_22"]]},
             include_garch=False,
         )
-        assert "rv_22_xasset" in result.columns
+        assert "rv_22_btc" in result.columns
 
     def test_cross_asset_nan_beyond_3_days(self) -> None:
         """Cross-asset values beyond 3-day staleness must be NaN."""
@@ -190,24 +190,66 @@ class TestCrossAsset:
             )
 
         target_df = _mk(target_dates, n_t)
-        source_feat = pd.DataFrame({"btc_rv22": [0.001] * n_s}, index=source_dates)
+        source_feat = pd.DataFrame({"rv22": [0.001] * n_s}, index=source_dates)
 
         result = build_features(
             target_df,
-            cross_asset_dfs={"BTC": source_feat},
+            cross_asset_dfs={"btc": source_feat},
             include_garch=False,
         )
-        # All target dates are > 3 days after last source date (Jan 29) → all NaN
-        # source last date: 2022-01-28 (Fri); target first date: 2022-02-07 (Mon) = 10 days
-        if "btc_rv22_xasset" in result.columns:
-            assert result["btc_rv22_xasset"].isna().all()
+        # All target dates are > 3 days after last source date → all NaN
+        # source last date: 2022-01-31 (Mon); target first date: 2022-02-07 (Mon) = 7 days
+        assert "rv22_btc" in result.columns, f"joined column missing: {list(result.columns)}"
+        assert result["rv22_btc"].isna().all()
 
     def test_cross_asset_absent_when_not_provided(self) -> None:
         """No cross-asset columns when cross_asset_dfs is None."""
         df = _ohlc(100)
         result = build_features(df, cross_asset_dfs=None, include_garch=False)
-        xasset_cols = [c for c in result.columns if "_xasset" in c]
-        assert not xasset_cols, f"Unexpected cross-asset columns: {xasset_cols}"
+        extra = set(result.columns) - EXPECTED_BASE_COLS
+        assert not extra, f"Unexpected cross-asset columns: {extra}"
+
+    def test_two_sources_with_same_feature_name_do_not_collide(self) -> None:
+        """WR-01 regression: two sources both providing rv_22 must yield
+        distinct per-asset-suffixed columns — never pandas _x/_y collision
+        names, and never dict-order-dependent names.
+
+        Value-level: each joined column carries its OWN source's values.
+        """
+        target = _ohlc(60)
+        dates = target.index
+
+        btc_source = pd.DataFrame({"rv_22": np.full(len(dates), 1e-4)}, index=dates)
+        eth_source = pd.DataFrame({"rv_22": np.full(len(dates), 9e-4)}, index=dates)
+
+        result = build_features(
+            target,
+            cross_asset_dfs={"btc": btc_source, "eth": eth_source},
+            include_garch=False,
+        )
+
+        # Asset-identifying, stable column names
+        assert "rv_22_btc" in result.columns, f"columns: {list(result.columns)}"
+        assert "rv_22_eth" in result.columns, f"columns: {list(result.columns)}"
+        # No pandas collision suffixes or generic suffix leakage
+        bad = [c for c in result.columns if c.endswith(("_x", "_y")) or "_xasset" in c]
+        assert not bad, f"collision/dict-order-dependent columns produced: {bad}"
+
+        # Value-level: each column carries its own source's values
+        assert result["rv_22_btc"].dropna().eq(1e-4).all(), "rv_22_btc lost BTC identity"
+        assert result["rv_22_eth"].dropna().eq(9e-4).all(), "rv_22_eth lost ETH identity"
+
+        # Dict-order invariance: reversed insertion order yields identical columns
+        result_rev = build_features(
+            target,
+            cross_asset_dfs={"eth": eth_source, "btc": btc_source},
+            include_garch=False,
+        )
+        assert set(result.columns) == set(result_rev.columns), (
+            "cross-asset column names depend on dict insertion order"
+        )
+        assert result_rev["rv_22_btc"].dropna().eq(1e-4).all()
+        assert result_rev["rv_22_eth"].dropna().eq(9e-4).all()
 
 
 # ---------------------------------------------------------------------------

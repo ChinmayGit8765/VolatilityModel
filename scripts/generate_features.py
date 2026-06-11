@@ -4,8 +4,12 @@ Reads: data/processed/{asset_class}/{slug}.parquet
 Writes: data/features/{asset_class}/{slug}.parquet
 
 Cross-asset wiring (per CONTEXT.md):
-- BTC RV_22 joined as a cross-asset feature onto ETH, SPY, AAPL, MSFT
-- ETH RV_22 joined as a cross-asset feature onto BTC (mutual crypto cross-asset)
+- BTC RV_22 joined as a cross-asset feature onto ETH, SPY, AAPL, MSFT (rv_22_btc)
+- ETH RV_22 joined as a cross-asset feature onto BTC (rv_22_eth)
+
+Column naming (WR-01): build_features suffixes each joined column with the
+source's dict key — rv_22 from source "btc" becomes rv_22_btc.  Names are
+stable and asset-identifying regardless of dict order.
 
 Run from project root:
     uv run python scripts/generate_features.py
@@ -88,12 +92,12 @@ def main() -> None:
         cross_asset_dfs: dict[str, pd.DataFrame] = {}
 
         if btc_base_feats is not None and sym != btc_sym:
-            # Attach BTC RV_22 as a cross-asset feature for all non-BTC assets
-            cross_asset_dfs["BTC"] = btc_base_feats[["rv_22"]].rename(columns={"rv_22": "btc_rv22"})
+            # Attach BTC RV_22 for all non-BTC assets -> joined as rv_22_btc
+            cross_asset_dfs["btc"] = btc_base_feats[["rv_22"]]
 
         if eth_base_feats is not None and sym == btc_sym:
-            # Attach ETH RV_22 as a cross-asset feature for BTC
-            cross_asset_dfs["ETH"] = eth_base_feats[["rv_22"]].rename(columns={"rv_22": "eth_rv22"})
+            # Attach ETH RV_22 for BTC -> joined as rv_22_eth
+            cross_asset_dfs["eth"] = eth_base_feats[["rv_22"]]
 
         df = raw[sym]
         result = build_features(
