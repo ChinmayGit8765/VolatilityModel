@@ -49,7 +49,12 @@ Plans:
   3. EWMA, GARCH(1,1), and HAR-RV each produce walk-forward forecasts per asset, with GARCH fitted on scaled returns and convergence asserted on every refit
   4. A unit test fails if any split is non-temporal or the embargo gap is shorter than the label horizon; the canonical QLIKE function (shared by all evaluation and the future promotion gate) passes `qlike(x, x) == 0` and is used alongside RMSE/MAE
   5. An evaluation report shows per-asset baseline RMSE/MAE/QLIKE — the published bar for Phase 3
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 02-01-PLAN.md — Foundation: add arch+statsmodels, canonical target.py, canonical metrics (QLIKE/RMSE/MAE), purged walk-forward harness + mandatory leak test
+- [ ] 02-02-PLAN.md — First report slice: RV/return/EWMA estimators, EWMA baseline, report generator → committed reports/baseline_eval.md + CSV (per-asset EWMA bar)
+- [ ] 02-03-PLAN.md — GARCH(1,1) + HAR-RV baselines on identical folds; extend the published report to all three baselines per asset
+- [ ] 02-04-PLAN.md — Single feature codepath build_features() (multi-lookback RV, EWMA, GARCH-as-feature, range estimators, vol-of-vol, skew/kurt, calendar, cross-asset as-of join) + no-lookahead test + 5 persisted feature parquet
 
 ### Phase 3: ML Challenger & Serving
 **Goal**: A tracked, explainable LightGBM challenger is benchmarked honestly against the classical bar on identical folds and served as next-day forecasts from a Dockerized API that logs every prediction
@@ -97,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
-| 2. Features, Target & Classical Baselines | 0/TBD | Not started | - |
+| 2. Features, Target & Classical Baselines | 0/4 | Planned | - |
 | 3. ML Challenger & Serving | 0/TBD | Not started | - |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
 | 5. Dashboard & Honest Documentation | 0/TBD | Not started | - |
