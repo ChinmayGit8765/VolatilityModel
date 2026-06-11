@@ -155,6 +155,40 @@ class TestValidateAssetCryptoRejectsOhlcViolation:
         quarantine_df = pd.read_csv(quarantine_files[0])
         assert len(quarantine_df) > 0, "Quarantine CSV must contain at least one row"
 
+    def test_validate_asset_quarantine_filename_carries_symbol_slug(self, tmp_path: Path) -> None:
+        """WR-01: with symbol_slug, the quarantine filename identifies the asset.
+
+        Two assets failing in the same second must produce DISTINCT report files,
+        and each report must be traceable back to its symbol.
+        """
+        from volforecast.validate import validate_asset
+
+        dates = pd.date_range("2022-01-01", periods=5, freq="D", tz="UTC")
+        df = pd.DataFrame(
+            {
+                "open": [40000.0] * 5,
+                "high": [41000.0, 41000.0, 39000.0, 41000.0, 41000.0],
+                "low": [39000.0, 39000.0, 40000.0, 39000.0, 39000.0],  # row 2: high<low
+                "close": [40500.0] * 5,
+                "volume": [5000.0] * 5,
+            },
+            index=dates,
+        )
+        df.index.name = "date"
+        quarantine_dir = tmp_path / "quarantine"
+
+        # Same bad frame failed for two different symbols within the same second
+        for slug in ("BTC-USD", "ETH-USD"):
+            with pytest.raises(Exception):  # ValidationError or SchemaErrors
+                validate_asset(
+                    df, asset_class="crypto", quarantine_dir=quarantine_dir, symbol_slug=slug
+                )
+
+        btc_files = list(quarantine_dir.glob("crypto_BTC-USD_*.csv"))
+        eth_files = list(quarantine_dir.glob("crypto_ETH-USD_*.csv"))
+        assert len(btc_files) == 1, f"Expected 1 BTC-USD quarantine CSV, found: {btc_files}"
+        assert len(eth_files) == 1, f"Expected 1 ETH-USD quarantine CSV, found: {eth_files}"
+
 
 # ---------------------------------------------------------------------------
 # validate_asset: clean fixtures return df and write NO quarantine

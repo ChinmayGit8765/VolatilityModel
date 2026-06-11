@@ -94,11 +94,13 @@ def _ingest_single_asset(
     """
     from pandera.errors import SchemaErrors
 
+    from volforecast.config import symbol_slug
     from volforecast.ingest.base import incremental_update, merge_bars
     from volforecast.validate import ValidationError, validate_asset
 
     symbol = asset["symbol"]
     asset_class = asset.get("asset_class", "crypto")
+    slug = symbol_slug(symbol)
 
     # ── Step 1: Fetch raw OHLCV ─────────────────────────────────────────────
     if asset_class == "crypto":
@@ -154,7 +156,7 @@ def _ingest_single_asset(
     quarantine_dir = quarantine_path.parent
     print(f"  Validating merged dataset ({asset_class} schema, {len(candidate)} rows)...")
     try:
-        validated_df = validate_asset(candidate, asset_class, quarantine_dir)
+        validated_df = validate_asset(candidate, asset_class, quarantine_dir, symbol_slug=slug)
     except (ValidationError, SchemaErrors) as e:
         print(
             f"  VALIDATION FAILED: {symbol} rejected — quarantine written to {quarantine_dir}",

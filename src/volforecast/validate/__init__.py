@@ -68,6 +68,7 @@ def validate_asset(
     df: pd.DataFrame,
     asset_class: Literal["crypto", "equity"],
     quarantine_dir: Path | str,
+    symbol_slug: str | None = None,
 ) -> pd.DataFrame:
     """Gate OHLCV data through Pandera + calendar-aware quality checks.
 
@@ -80,8 +81,11 @@ def validate_asset(
     4. ohlc_consistency_check (redundant safety net for non-schema paths).
 
     On ANY failure all violations are aggregated into a single quarantine CSV
-    written to ``quarantine_dir/{asset_class}_{timestamp}.csv``, then a
+    written to ``quarantine_dir/{asset_class}_{symbol_slug}_{timestamp}.csv``
+    (``{asset_class}_{timestamp}.csv`` when no slug is given), then a
     ``ValidationError`` is raised (fails closed — no invalid data reaches downstream).
+    Including the slug traces every report back to the symbol that produced it and
+    prevents two assets failing in the same second from overwriting each other's report.
 
     On success returns the Pandera-validated DataFrame (unchanged value-wise).
 
@@ -91,6 +95,8 @@ def validate_asset(
         asset_class: ``"crypto"`` or ``"equity"``.
         quarantine_dir: Directory to write the quarantine report on failure.
             Created automatically if it does not exist.
+        symbol_slug: Optional filesystem-safe symbol identifier (e.g. "BTC-USD")
+            embedded in the quarantine filename for traceability.
 
     Returns:
         The validated DataFrame on success.
@@ -109,7 +115,8 @@ def validate_asset(
     schema = _ASSET_CLASS_SCHEMA[asset_class]
     quarantine_dir = Path(quarantine_dir)
     timestamp = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
-    quarantine_path = quarantine_dir / f"{asset_class}_{timestamp}.csv"
+    name_parts = [asset_class] + ([symbol_slug] if symbol_slug else []) + [timestamp]
+    quarantine_path = quarantine_dir / ("_".join(name_parts) + ".csv")
 
     # ------------------------------------------------------------------
     # Step 1: Run all non-Pandera checks first (calendar + stale + OHLC).
