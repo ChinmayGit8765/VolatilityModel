@@ -88,9 +88,15 @@ def _ingest_single_asset(
       4. On validation success: write the validated merged frame to processed_out_path
       5. On validation failure: quarantine file written, no processed parquet
 
-    Returns 0 on success (both raw and processed written), 1 on any error.
-    Validation failures are logged but do NOT cause a non-zero return code unless
-    the failure is unexpected — the gate failing closed is expected behaviour.
+    Return codes:
+      0 — success (raw and processed written), or asset skipped (empty fetch /
+          unknown asset_class).
+      1 — fetch error OR validation rejection.  A rejection is the gate failing
+          closed as designed: the quarantine report is written, no processed
+          parquet is produced, and this per-asset rc 1 makes _cmd_ingest count
+          the asset as failed.  The multi-asset loop still CONTINUES to the next
+          asset; the overall process then exits non-zero so CI/orchestration can
+          see that at least one asset did not reach data/processed/.
     """
     from pandera.errors import SchemaErrors
 
@@ -164,9 +170,10 @@ def _ingest_single_asset(
         )
         print(f"    Details: {e}", file=sys.stderr)
         print(f"  Skipping processed write for {symbol} (gate fails closed).", file=sys.stderr)
-        # Validation failure is NOT a pipeline error — it is expected behaviour.
-        # Return 0 so the pipeline continues to next asset.
-        # The caller can detect missing processed parquet to identify rejected assets.
+        # The gate failing closed is EXPECTED behaviour, but it still returns 1:
+        # _cmd_ingest counts this asset as failed (the loop continues to the next
+        # asset) and the overall process exits non-zero so CI/orchestration can
+        # detect that not every asset reached data/processed/.
         return 1
     except Exception as e:
         print(f"  ERROR: Unexpected validation error for {symbol}: {e}", file=sys.stderr)
