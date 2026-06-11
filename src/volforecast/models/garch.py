@@ -70,6 +70,29 @@ GARCH_SCALE: float = 100.0
 
 
 # --------------------------------------------------------------------------- #
+#  Dedicated fit-failure exceptions (WR-03)
+# --------------------------------------------------------------------------- #
+
+
+class GarchFitError(RuntimeError):
+    """Base class for GARCH fit-quality failures.
+
+    Raised unconditionally (unlike a bare ``assert``, which is stripped under
+    ``python -O``) so convergence/stationarity enforcement can never be
+    silently disabled.  ``GARCH.forecast_path`` catches exactly this family
+    to trigger the documented fallback chain.
+    """
+
+
+class GarchConvergenceError(GarchFitError):
+    """The scipy optimizer did not terminate successfully (convergence_flag != 0)."""
+
+
+class GarchNonStationaryError(GarchFitError):
+    """The fitted parameters violate stationarity (alpha + beta >= 1.0)."""
+
+
+# --------------------------------------------------------------------------- #
 #  Core fit/forecast helpers
 # --------------------------------------------------------------------------- #
 
@@ -81,7 +104,8 @@ def fit_garch(log_returns_decimal: pd.Series):  # -> ARCHModelResult
     values in the ~0.1–10 range it expects.  Uses ``rescale=False`` to
     prevent arch from applying a second (hidden) rescaling step.
 
-    Asserts after every fit:
+    Enforced after every fit (raised unconditionally — NOT via ``assert``,
+    which would be stripped under ``python -O``, WR-03):
     - ``res.convergence_flag == 0``  (scipy optimizer terminated successfully)
     - ``alpha + beta < 1.0``         (stationarity / finite unconditional var)
 
@@ -93,7 +117,8 @@ def fit_garch(log_returns_decimal: pd.Series):  # -> ARCHModelResult
         ARCHModelResult with fit GARCH(1,1) params.
 
     Raises:
-        AssertionError: If convergence or stationarity assertions fail.
+        GarchConvergenceError: If the optimizer did not converge.
+        GarchNonStationaryError: If alpha + beta >= 1.0.
     """
     from arch import arch_model  # lazy import
 
@@ -105,12 +130,14 @@ def fit_garch(log_returns_decimal: pd.Series):  # -> ARCHModelResult
         warnings.simplefilter("ignore")
         res = am.fit(disp="off")
 
-    assert res.convergence_flag == 0, (
-        f"GARCH did not converge (convergence_flag={res.convergence_flag})"
-    )
+    if res.convergence_flag != 0:
+        raise GarchConvergenceError(
+            f"GARCH did not converge (convergence_flag={res.convergence_flag})"
+        )
     alpha = float(res.params["alpha[1]"])
     beta = float(res.params["beta[1]"])
-    assert alpha + beta < 1.0, f"GARCH non-stationary: alpha+beta={alpha + beta:.6f} >= 1.0"
+    if alpha + beta >= 1.0:
+        raise GarchNonStationaryError(f"GARCH non-stationary: alpha+beta={alpha + beta:.6f} >= 1.0")
     return res
 
 
@@ -234,12 +261,14 @@ class GARCH:
             # the information set (CR-01 alignment fix).
             train_slice = log_returns_series.iloc[: pos + 1]
 
-            # Attempt fit
+            # Attempt fit — only fit-quality failures (WR-03 exceptions)
+            # trigger the fallback chain; anything else is a real bug and
+            # propagates (see WR-04).
             fitted_res = None
             try:
                 fitted_res = fit_garch(train_slice)
                 last_res = fitted_res
-            except (AssertionError, Exception) as exc:  # noqa: BLE001
+            except GarchFitError as exc:
                 log.warning(
                     "GARCH refit at pos=%d failed (%s: %s) — using fallback",
                     pos,

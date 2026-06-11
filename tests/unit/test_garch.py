@@ -40,6 +40,9 @@ def _make_returns(n: int = N_TRAIN + N_STEP, seed: int = 42) -> pd.Series:
 from volforecast.models.garch import (  # noqa: E402
     GARCH,
     GARCH_SCALE,
+    GarchConvergenceError,
+    GarchFitError,
+    GarchNonStationaryError,
     fit_garch,
 )
 
@@ -189,6 +192,67 @@ class TestGarchFallback:
         assert test_forecasts.notna().all(), (
             f"forecast_path emitted NaN in test window: {test_forecasts}"
         )
+
+
+# ------------------------------------------------------------------ #
+# 5b. Dedicated fit-failure exceptions (WR-03)
+# ------------------------------------------------------------------ #
+
+
+class TestGarchFitExceptions:
+    def test_exception_hierarchy(self):
+        """WR-03: dedicated exceptions exist and share the GarchFitError base.
+
+        Plain ``assert`` statements are stripped under ``python -O``; the
+        enforcement must be regular raises of these dedicated types.
+        """
+        assert issubclass(GarchConvergenceError, GarchFitError)
+        assert issubclass(GarchNonStationaryError, GarchFitError)
+        assert issubclass(GarchFitError, RuntimeError)
+        assert not issubclass(GarchFitError, AssertionError), (
+            "fit-quality enforcement must not rely on AssertionError (stripped under python -O)"
+        )
+
+    def test_convergence_failure_triggers_ewma_fallback(self, monkeypatch):
+        """forecast_path catches GarchConvergenceError and falls back to EWMA
+        (no prior fit) — value-level check against the EWMA fallback values."""
+        import volforecast.models.garch as garch_mod
+        from volforecast.features.estimators import ewma_variance
+
+        def _always_fails(train_slice):
+            raise GarchConvergenceError("forced convergence failure (test)")
+
+        monkeypatch.setattr(garch_mod, "fit_garch", _always_fails)
+
+        r = _make_returns(N_TRAIN + N_STEP)
+        model = GARCH(min_train=N_TRAIN, step=N_STEP)
+        forecasts = model.forecast_path(r)
+
+        # Exactly one refit window — one fallback
+        assert model.fallback_count == 1, f"expected 1 fallback, got {model.fallback_count}"
+
+        # Fallback 2 (no prior fit): forecasts equal the EWMA variance values
+        expected = ewma_variance(r, lam=model.ewma_lam).values
+        np.testing.assert_allclose(
+            forecasts.iloc[N_TRAIN:].values,
+            expected[N_TRAIN : N_TRAIN + N_STEP],
+            rtol=1e-12,
+        )
+
+    def test_nonstationary_failure_triggers_fallback(self, monkeypatch):
+        """GarchNonStationaryError is also caught by the fallback chain."""
+        import volforecast.models.garch as garch_mod
+
+        def _always_fails(train_slice):
+            raise GarchNonStationaryError("forced non-stationarity (test)")
+
+        monkeypatch.setattr(garch_mod, "fit_garch", _always_fails)
+
+        r = _make_returns(N_TRAIN + N_STEP)
+        model = GARCH(min_train=N_TRAIN, step=N_STEP)
+        forecasts = model.forecast_path(r)
+        assert model.fallback_count == 1
+        assert forecasts.iloc[N_TRAIN:].notna().all()
 
 
 # ------------------------------------------------------------------ #
