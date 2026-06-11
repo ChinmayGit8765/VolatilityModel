@@ -23,7 +23,6 @@ No fixtures or network calls — all data is synthetic integer positions.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from volforecast.eval.harness import WalkForwardSplit, walk_forward_splits
 
@@ -103,7 +102,7 @@ class TestPurge:
         # train_end = test_start - horizon = 252 - 1 = 251
         # train_idx = arange(0, 251) → max = 250
         # So train_idx.max() + horizon + 1 == test_idx.min()
-        expected_gap = horizon + 1  # purge removes 1 obs, so gap = horizon + 1 for standard case
+        # purge removes 1 obs, so gap = horizon + 1 for standard case
         gap = first.test_idx.min() - first.train_idx.max()
         # We expect gap >= horizon — exact formula is gap = horizon + 1 for the first split
         assert gap >= horizon, f"First split gap {gap} < horizon {horizon}"
