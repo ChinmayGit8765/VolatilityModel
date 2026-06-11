@@ -75,8 +75,26 @@ def as_of_join(
         KeyError: If a column in ``feature_cols`` does not exist in ``right``.
     """
     # --- Reset index so merge_asof operates on a "date" column ---
-    left_reset = left.reset_index()  # "date" becomes a regular column
-    right_reset = right[feature_cols].reset_index()  # keep only feature cols + date
+    # Both DataFrames have a DatetimeIndex; reset_index() produces a column whose
+    # name equals the index name.  If the index is unnamed (name=None), rename the
+    # resulting column to "date" so merge_asof can join on it.
+    left_reset = left.reset_index()
+    right_reset = right[feature_cols].reset_index()
+
+    # Normalize the date column name to "date" regardless of original index name
+    def _normalize_date_col(df: pd.DataFrame) -> pd.DataFrame:
+        if "date" not in df.columns:
+            # The index may have been called "index" or something else after reset
+            for candidate in ("index", "level_0"):
+                if candidate in df.columns:
+                    return df.rename(columns={candidate: "date"})
+            # Last resort: assume the first column is the date column
+            first_col = df.columns[0]
+            return df.rename(columns={first_col: "date"})
+        return df
+
+    left_reset = _normalize_date_col(left_reset)
+    right_reset = _normalize_date_col(right_reset)
 
     # --- Sort ascending by "date" (Pitfall 6: merge_asof requires sorted inputs) ---
     left_sorted = left_reset.sort_values("date").reset_index(drop=True)
@@ -92,22 +110,22 @@ def as_of_join(
         "check for duplicate or NaT index values"
     )
 
-    # --- Build column rename map to apply suffix to joined feature cols ---
-    # merge_asof suffixes parameter only triggers on column name collisions;
-    # we rename manually to always apply the suffix.
+    # --- Pre-rename right columns with the suffix BEFORE merging ---
+    # This avoids pandas applying its own _x/_y suffixes on collision.
+    # We rename right's feature cols to {col}{suffix} before the merge_asof call
+    # so there are never name collisions between left and right.
     rename_map = {col: f"{col}{suffix}" for col in feature_cols}
+    renamed_feature_cols = [f"{col}{suffix}" for col in feature_cols]
+    right_renamed = right_sorted[["date"] + feature_cols].rename(columns=rename_map)
 
     # --- Perform the backward as-of join ---
     merged = pd.merge_asof(
         left_sorted,
-        right_sorted[["date"] + feature_cols],
+        right_renamed[["date"] + renamed_feature_cols],
         on="date",
         direction="backward",
         tolerance=MAX_CROSS_ASSET_STALENESS,
     )
-
-    # --- Apply suffix to joined columns ---
-    merged = merged.rename(columns=rename_map)
 
     # --- Restore UTC DatetimeIndex ---
     merged = merged.set_index("date")
