@@ -148,6 +148,67 @@ class TestEquityAdapterRetriesThenSucceeds:
         assert "SPY" in result, "Retry succeeded but SPY missing from result"
         assert call_count["n"] == 2, f"Expected 2 calls (1 fail + 1 succeed), got {call_count['n']}"
 
+    def test_equity_adapter_retries_on_silent_empty_download(self) -> None:
+        """WR-03: yf.download's dominant failure mode is returning an EMPTY frame
+        without raising.  The adapter must treat an empty result as a retryable
+        failure (so the backoff fires) and succeed once data arrives.
+        """
+        import os
+
+        from volforecast.ingest.equity import download_equity_ohlcv
+
+        tickers = ["SPY"]
+        raw = _make_yf_multi_raw(tickers, n=5)
+
+        call_count = {"n": 0}
+
+        def silent_empty_then_ok(*args, **kwargs):  # noqa: ANN001, ANN202
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return pd.DataFrame()  # silent rate-limit failure: empty, no exception
+            return raw
+
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch("volforecast.ingest.equity.yf.download", side_effect=silent_empty_then_ok),
+        ):
+            os.environ.pop("VOLFORECAST_NO_LIVE_API", None)
+            result = download_equity_ohlcv(tickers, start="2022-01-03", end="2022-01-31")
+
+        assert "SPY" in result, "Empty-frame retry succeeded but SPY missing from result"
+        assert call_count["n"] == 2, (
+            f"Expected 2 calls (1 empty + 1 succeed), got {call_count['n']} — "
+            "an empty download must trigger the retry path"
+        )
+
+    def test_equity_adapter_does_not_retry_programming_errors(self) -> None:
+        """WR-03: non-transient exceptions (e.g. TypeError) must propagate
+        immediately instead of being retried 5 times with long waits.
+        """
+        import os
+
+        import pytest
+
+        from volforecast.ingest.equity import download_equity_ohlcv
+
+        call_count = {"n": 0}
+
+        def buggy_download(*args, **kwargs):  # noqa: ANN001, ANN202
+            call_count["n"] += 1
+            raise TypeError("Simulated programming error")
+
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch("volforecast.ingest.equity.yf.download", side_effect=buggy_download),
+        ):
+            os.environ.pop("VOLFORECAST_NO_LIVE_API", None)
+            with pytest.raises(TypeError):
+                download_equity_ohlcv(["SPY"], start="2022-01-03", end="2022-01-31")
+
+        assert call_count["n"] == 1, (
+            f"TypeError must NOT be retried; yf.download was called {call_count['n']} times"
+        )
+
 
 # ── Task 2: Cache-first incremental resume + multi-asset dispatch ─────────────
 

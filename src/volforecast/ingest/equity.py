@@ -38,7 +38,10 @@ from volforecast.ingest.base import OHLCV_COLUMNS
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=1, min=2, max=60),
-    retry=retry_if_exception_type(Exception),
+    # Retry only TRANSIENT failures (network/rate-limit shaped). Retrying every
+    # Exception would also retry programming errors (TypeError, KeyError) five
+    # times with waits up to 60s, masking bugs for minutes.
+    retry=retry_if_exception_type((OSError, ConnectionError)),
     reraise=True,
 )
 def _download_with_retry(
@@ -51,12 +54,23 @@ def _download_with_retry(
     Separated from the public API so the VOLFORECAST_NO_LIVE_API guard can be checked
     outside the retry loop (the guard should fire once, not be re-raised on each retry).
 
+    yfinance's dominant failure mode is SILENT: yf.download swallows per-ticker
+    errors and rate-limit failures, printing to stderr and returning an empty
+    DataFrame without raising.  An empty result is therefore converted to a
+    retryable OSError here so the backoff actually fires for the failure it was
+    added to handle.
+
     Uses:
     - auto_adjust=True: records adjusted OHLC (splits + dividends) — explicit documented choice
     - threads=False: disables threading to avoid shared-global-dict race in yfinance 1.x
     - progress=False: suppresses console output
+
+    Raises:
+        OSError: If yf.download returns an empty frame (rate limit / transient
+            Yahoo failure) — retried with exponential backoff, reraised after
+            the final attempt.
     """
-    return yf.download(
+    raw = yf.download(
         tickers=tickers,
         start=start,
         end=end,
@@ -64,6 +78,12 @@ def _download_with_retry(
         threads=False,  # Disable threading: shared-global-dict bug in yfinance 1.x
         progress=False,
     )
+    if raw is None or raw.empty:
+        raise OSError(
+            f"yf.download returned an empty frame for {tickers} "
+            "(rate limit or transient Yahoo failure?)"
+        )
+    return raw
 
 
 def download_equity_ohlcv(
@@ -89,7 +109,10 @@ def download_equity_ohlcv(
 
     Raises:
         RuntimeError: If VOLFORECAST_NO_LIVE_API=1 is set (network guard for CI/tests).
-        Exception: Retried up to 5 times by _download_with_retry; reraises on final failure.
+        OSError: Transient failures (including yf.download silently returning an
+            empty frame) are retried up to 5 times by _download_with_retry with
+            exponential backoff; reraised on final failure.  Non-transient
+            exceptions (e.g. TypeError) propagate immediately without retry.
     """
     if os.environ.get("VOLFORECAST_NO_LIVE_API") == "1":
         raise RuntimeError(
