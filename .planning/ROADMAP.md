@@ -52,7 +52,7 @@ Plans:
 **Plans**: 4 plans
 Plans:
 - [x] 02-01-PLAN.md — Foundation: add arch+statsmodels, canonical target.py, canonical metrics (QLIKE/RMSE/MAE), purged walk-forward harness + mandatory leak test
-- [ ] 02-02-PLAN.md — First report slice: RV/return/EWMA estimators, EWMA baseline, report generator → committed reports/baseline_eval.md + CSV (per-asset EWMA bar)
+- [x] 02-02-PLAN.md — First report slice: RV/return/EWMA estimators, EWMA baseline, report generator → committed reports/baseline_eval.md + CSV (per-asset EWMA bar)
 - [ ] 02-03-PLAN.md — GARCH(1,1) + HAR-RV baselines on identical folds; extend the published report to all three baselines per asset
 - [ ] 02-04-PLAN.md — Single feature codepath build_features() (multi-lookback RV, EWMA, GARCH-as-feature, range estimators, vol-of-vol, skew/kurt, calendar, cross-asset as-of join) + no-lookahead test + 5 persisted feature parquet
 
@@ -102,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
-| 2. Features, Target & Classical Baselines | 1/4 | In Progress|  |
+| 2. Features, Target & Classical Baselines | 2/4 | In Progress|  |
 | 3. ML Challenger & Serving | 0/TBD | Not started | - |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
 | 5. Dashboard & Honest Documentation | 0/TBD | Not started | - |
