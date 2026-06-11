@@ -204,7 +204,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     back to --start when no processed parquet exists yet (first run, or every prior
     run was rejected by validation).
     """
-    from volforecast.config import load_assets, processed_path, raw_path, symbol_slug
+    from volforecast.config import load_assets, processed_path, project_root, raw_path, symbol_slug
     from volforecast.ingest.crypto import resume_since_ms
 
     # Parse start date -> millisecond epoch (used for crypto since, and equity start string)
@@ -214,7 +214,9 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         print(f"ERROR: Invalid --start date '{args.start}': {e}", file=sys.stderr)
         return 1
     default_since_ms = int(start_ts.timestamp() * 1000)
-    project_root = Path.cwd()
+    # Single root for BOTH config and data (WR-07): VOLFORECAST_ROOT env var,
+    # falling back to the current working directory.
+    root = project_root()
 
     # Build the list of assets to ingest
     if args.symbol:
@@ -234,8 +236,13 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             }
         ]
     else:
-        # Multi-asset mode: load full universe from config
-        assets_to_ingest = load_assets()
+        # Multi-asset mode: load full universe from config (resolved against the
+        # same root as the data/ output — see volforecast.config.project_root).
+        try:
+            assets_to_ingest = load_assets()
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
         if not assets_to_ingest:
             print("ERROR: No assets found in config/assets.yaml", file=sys.stderr)
             return 1
@@ -249,14 +256,14 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         exchange_id = args.exchange or asset.get("exchange", "binance")
         slug = symbol_slug(symbol)
 
-        out_path = raw_path(asset, data_root=project_root / "data")
-        processed_out_path = processed_path(asset, data_root=project_root / "data")
-        quarantine_path = project_root / "data" / "quarantine" / f"{slug}_quarantine.csv"
+        out_path = raw_path(asset, data_root=root / "data")
+        processed_out_path = processed_path(asset, data_root=root / "data")
+        quarantine_path = root / "data" / "quarantine" / f"{slug}_quarantine.csv"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         processed_out_path.parent.mkdir(parents=True, exist_ok=True)
         quarantine_path.parent.mkdir(parents=True, exist_ok=True)
 
-        print(f"\n[{asset_class.upper()}] {symbol} -> {out_path.relative_to(project_root)}")
+        print(f"\n[{asset_class.upper()}] {symbol} -> {out_path.relative_to(root)}")
 
         # Cache-first for crypto: resume from the last VALIDATED date (processed
         # parquet), not the raw parquet (CR-02).  If a previous run was rejected

@@ -2,34 +2,59 @@
 
 Loads config/assets.yaml and provides helpers for symbol normalization and
 canonical data file paths.
+
+Path resolution: config (config/assets.yaml) and data (data/) are BOTH resolved
+relative to a single project root — ``project_root()`` — so the CLI never reads
+config from one directory tree while writing data into another.  The root is
+the VOLFORECAST_ROOT environment variable when set, otherwise the current
+working directory.  (Resolving relative to ``__file__`` would point into
+site-packages for a built wheel.)
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-# Default config file location (relative to the project root)
-_CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
-_ASSETS_YAML = _CONFIG_DIR / "assets.yaml"
 
-# Default data root (relative to project root)
-_DATA_ROOT = Path(__file__).parent.parent.parent / "data"
+def project_root() -> Path:
+    """Return the single root directory for config and data resolution.
+
+    Resolution order:
+    1. The ``VOLFORECAST_ROOT`` environment variable, if set.
+    2. The current working directory.
+
+    Both ``config/assets.yaml`` and ``data/`` are resolved relative to this
+    root, so running the console script from any directory keeps reads and
+    writes in the same tree (set VOLFORECAST_ROOT to pin the project location).
+    """
+    env_root = os.environ.get("VOLFORECAST_ROOT")
+    return Path(env_root) if env_root else Path.cwd()
 
 
 def load_assets(config_path: Path | str | None = None) -> list[dict[str, Any]]:
     """Load the asset universe from config/assets.yaml.
 
     Args:
-        config_path: Path to the assets YAML file. Defaults to config/assets.yaml
-                     relative to the package root.
+        config_path: Path to the assets YAML file. Defaults to
+                     ``{project_root()}/config/assets.yaml``.
 
     Returns:
         List of asset dicts, each with keys: symbol, asset_class, exchange.
+
+    Raises:
+        FileNotFoundError: If the config file does not exist, with a message
+            pointing at the expected location.
     """
-    path = Path(config_path) if config_path else _ASSETS_YAML
+    path = Path(config_path) if config_path else project_root() / "config" / "assets.yaml"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Asset config not found at {path}. Run from the project root, set the "
+            "VOLFORECAST_ROOT environment variable, or pass config_path explicitly."
+        )
     with open(path) as f:
         data = yaml.safe_load(f)
     return data.get("assets", [])
@@ -64,12 +89,12 @@ def raw_path(asset: dict[str, Any], data_root: Path | str | None = None) -> Path
 
     Args:
         asset: Asset dict with keys: symbol, asset_class.
-        data_root: Root data directory. Defaults to data/ relative to project root.
+        data_root: Root data directory. Defaults to ``{project_root()}/data``.
 
     Returns:
         Path like data/raw/{asset_class}/{slug}.parquet
     """
-    root = Path(data_root) if data_root else _DATA_ROOT
+    root = Path(data_root) if data_root else project_root() / "data"
     slug = symbol_slug(asset["symbol"])
     return root / "raw" / asset["asset_class"] / f"{slug}.parquet"
 
@@ -81,11 +106,11 @@ def processed_path(asset: dict[str, Any], data_root: Path | str | None = None) -
 
     Args:
         asset: Asset dict with keys: symbol, asset_class.
-        data_root: Root data directory. Defaults to data/ relative to project root.
+        data_root: Root data directory. Defaults to ``{project_root()}/data``.
 
     Returns:
         Path like data/processed/{asset_class}/{slug}.parquet
     """
-    root = Path(data_root) if data_root else _DATA_ROOT
+    root = Path(data_root) if data_root else project_root() / "data"
     slug = symbol_slug(asset["symbol"])
     return root / "processed" / asset["asset_class"] / f"{slug}.parquet"
