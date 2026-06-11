@@ -62,3 +62,21 @@ Corroborating symptom of CR-01; resolving CR-01 reconciles both.
 
 ---
 _Reviewer: gsd-code-reviewer (returned inline; artifact written by orchestrator)_
+
+## Fix Status (2026-06-11)
+
+Scope: CR-01 + WR-01..WR-04 (Critical + Warning). Info findings IN-01/03/04 out of scope; IN-02 resolved as a corollary of CR-01. Suite green at every commit (`uv run pytest tests/ -q`: 297 passed, 2 skipped; ruff format + check clean).
+
+| ID | Status | Commit | Fix |
+|----|--------|--------|-----|
+| CR-01 | fixed | e40b6a8, 2d17d0b | EWMA drops the extra `.shift(1)`; GARCH trains on `iloc[:pos+1]`; HAR-RV tail is `iloc[:t+1]` — forecast[t] now uses data ≤ t and is scored against RV[t+1]. Value-level alignment tests added (`tests/unit/test_baseline_alignment.py`). Reports + CSV regenerated with real data (aligned baselines score better: BTC EWMA QLIKE 2.0215 → 1.9500); feature parquets regenerated, DVC pointer committed + pushed. |
+| WR-01 | fixed | 020fb6e, 2d17d0b | `build_features` passes `suffix=f"_{asset_name}"` to `as_of_join`; cross-asset columns are per-source (`rv_22_btc`, `rv_22_eth`), stable and asset-identifying. Two-source collision + dict-order-invariance regression test added. Feature parquets regenerated. |
+| WR-02 | fixed | 26b7d4e | `qlike` floors BOTH inputs at `QLIKE_FLOOR` and raises `ValueError` on a non-finite result. Zero-rv, floored-equivalence, and NaN/inf-raise tests added. |
+| WR-03 | fixed | d72dafe | Bare asserts replaced with unconditional raises of `GarchConvergenceError`/`GarchNonStationaryError` (base `GarchFitError`); `forecast_path` catches exactly that family for the fallback chain. Hierarchy + fallback-behavior tests added. |
+| WR-04 | fixed | 89da68d | Warnings suppression scoped to arch categories (`ConvergenceWarning`, `DataScaleWarning`, `StartingValueWarning`); fallback catches narrowed to `GarchFitError` + `np.linalg.LinAlgError` (fit) and `(ValueError, LinAlgError)` (re-forecast) — real bugs (e.g. TypeError) now propagate. Bug-propagation + warning-scoping tests added. |
+| IN-02 | fixed (corollary) | e40b6a8 | EWMA feature (`ewma[t]`) and EWMA baseline forecast (`ewma[t]`) now agree — same quantity, same day. |
+| IN-01 | not fixed (out of scope) | — | Info: harness drops final partial window; docstring mismatch. |
+| IN-03 | not fixed (out of scope) | — | Info: GARCH-as-feature docstring says "filtered" but implementation forecasts. |
+| IN-04 | not fixed (out of scope) | — | Info: `compute_target(horizon>1)` duplicates `forward_realized_var`. |
+
+_Fixer: Claude (gsd-code-fixer)_
