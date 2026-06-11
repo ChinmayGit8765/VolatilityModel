@@ -45,14 +45,17 @@ class _StubModel:
 
 
 @pytest.fixture()
-def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """Return a TestClient with a mocked champion model and tmp prediction log."""
+def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Return a TestClient with a mocked champion model and tmp prediction log.
+
+    The client is yielded inside a ``with TestClient(...)`` block so the
+    lifespan (startup/shutdown) fires correctly.
+    """
     # Point the prediction log at a temp directory
     log_path = tmp_path / "predictions.parquet"
     monkeypatch.setenv("PREDICTION_LOG_PATH", str(log_path))
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:9999")  # unreachable — OK
     # Point data root at a known location
-
     monkeypatch.setenv(
         "VOLFORECAST_ROOT",
         str(Path(__file__).parent.parent.parent),
@@ -63,17 +66,16 @@ def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     import importlib
 
     import volforecast.serving.app as app_mod
-
     import volforecast.serving.prediction_log as pl_mod
 
     importlib.reload(pl_mod)
 
-    # Patch _load_model to return the stub without hitting MLflow
+    # Patch _load_champion_model to return the stub without hitting MLflow
     monkeypatch.setattr(app_mod, "_load_champion_model", lambda: (_StubModel(), "3", "champion"))
 
-    # Build the TestClient — lifespan runs on context-manager entry
-    client = TestClient(app_mod.app, raise_server_exceptions=True)
-    return client
+    # Use TestClient as context manager so the ASGI lifespan runs
+    with TestClient(app_mod.app, raise_server_exceptions=True) as client:
+        yield client
 
 
 # ---------------------------------------------------------------------------
