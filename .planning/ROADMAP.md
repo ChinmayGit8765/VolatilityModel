@@ -67,7 +67,12 @@ Plans:
   3. SHAP explainability artifacts exist for the registered model and are inspectable
   4. Calling the FastAPI service returns next-day vol forecasts for all tracked assets from the `@champion` alias, with model-version metadata in responses and a working health endpoint, all running under docker-compose
   5. Every served forecast appends a row (timestamp, asset, horizon, forecast, model version) to the prediction log — the contract monitoring will consume
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 03-01-PLAN.md — Foundation: add lightgbm/shap/fastapi/uvicorn, switch MLflow to --serve-artifacts, log-variance transforms + leak-free pooled fold assembly (models/lgbm.py)
+- [ ] 03-02-PLAN.md — Pooled LightGBM training (inner-val grid search), MLflow tracking + volforecast-lgbm@champion registry alias, SHAP artifacts
+- [ ] 03-03-PLAN.md — ml_vs_baselines report: ML-vs-EWMA/GARCH/HAR per asset and per regime (vol terciles + year), honest losses stated plainly
+- [ ] 03-04-PLAN.md — FastAPI serving (champion @startup, /health, /forecast, /forecast/{symbol}), atomic prediction log, Dockerfile + docker-compose api service
 
 ### Phase 4: Monitoring, Orchestration & Retraining
 **Goal**: The system closes its feedback loop — auto-arriving realized vol labels logged forecasts, drift and performance degradation raise alerts and trigger retraining, and promotion is gated on rolling QLIKE with rollback as an alias flip
@@ -103,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
 | 2. Features, Target & Classical Baselines | 4/4 | Complete   | 2026-06-11 |
-| 3. ML Challenger & Serving | 0/TBD | Not started | - |
+| 3. ML Challenger & Serving | 0/4 | Not started | - |
 | 4. Monitoring, Orchestration & Retraining | 0/TBD | Not started | - |
 | 5. Dashboard & Honest Documentation | 0/TBD | Not started | - |
 
