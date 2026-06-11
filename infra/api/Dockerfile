@@ -14,11 +14,20 @@ COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir uv && \
     uv sync --no-dev --frozen
 
-# Copy source tree
+# Copy source tree and asset config
 COPY src/ ./src/
+COPY config/ ./config/
 
 # Python path so volforecast package is importable
 ENV PYTHONPATH=/app/src
+
+# VOLFORECAST_ROOT: used by load_assets to find config/assets.yaml at /app/config/assets.yaml
+ENV VOLFORECAST_ROOT=/app
+
+# VOLFORECAST_DATA_ROOT: the data directory (bind-mounted from the host).
+# Processed parquets are read from /data/processed/; the prediction log is
+# written to /data/predictions/ (via PREDICTION_LOG_PATH).
+ENV VOLFORECAST_DATA_ROOT=/data
 
 # MLflow tracking URI (compose DNS name) — overridable at run time
 ENV MLFLOW_TRACKING_URI=http://mlflow-server:5000

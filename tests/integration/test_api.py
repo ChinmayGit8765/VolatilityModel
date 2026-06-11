@@ -70,8 +70,13 @@ def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     importlib.reload(pl_mod)
 
-    # Patch _load_champion_model to return the stub without hitting MLflow
-    monkeypatch.setattr(app_mod, "_load_champion_model", lambda: (_StubModel(), "3", "champion"))
+    # Patch _load_champion_model to return the stub without hitting MLflow.
+    # Returns (native_model, version, alias, model_columns).
+    # model_columns=[] means _forecast_for will skip reindex — OK for the stub
+    # which accepts any column set.
+    monkeypatch.setattr(
+        app_mod, "_load_champion_model", lambda: (_StubModel(), "3", "champion", [])
+    )
 
     # Use TestClient as context manager so the ASGI lifespan runs
     with TestClient(app_mod.app, raise_server_exceptions=True) as client:

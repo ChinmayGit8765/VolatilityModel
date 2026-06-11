@@ -126,6 +126,8 @@ services:
       MLFLOW_TRACKING_URI: "http://mlflow-server:5000"
       # Prediction log written to the bind-mounted data volume (Pitfall 7)
       PREDICTION_LOG_PATH: "/data/predictions/predictions.parquet"
+      # Data root for processed parquets (bind-mounted at /data)
+      VOLFORECAST_DATA_ROOT: "/data"
     volumes:
       # Bind-mount the host data/ dir so the container can:
       #   - READ:  data/processed/ + data/features/ for feature computation

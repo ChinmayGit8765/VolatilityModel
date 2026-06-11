@@ -22,6 +22,7 @@ import math
 import os
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -60,7 +61,18 @@ def _load_champion_model() -> tuple:
     """Load the champion model from MLflow and resolve its version string.
 
     Returns:
-        (model, version_str, alias_str)
+        (native_lgb_model, version_str, alias_str, model_columns_list)
+
+        ``native_lgb_model`` is the underlying LGBMRegressor extracted from the
+        pyfunc wrapper.  We bypass the pyfunc schema validation layer (which
+        can't coerce pandas CategoricalDtype -> string) and predict directly on
+        the native model so the asset column can be passed as ASSET_DTYPE
+        (required for LightGBM categorical splits).
+
+        ``model_columns_list`` is the full ordered column list from the model's
+        registered signature — used to reindex each inference row to the exact
+        21-column training schema (including NaN-filled optional cross-asset
+        columns for assets that don't have them).
 
     Raises:
         RuntimeError: if MLFLOW_TRACKING_URI is not set or the model fails to load.
@@ -75,13 +87,24 @@ def _load_champion_model() -> tuple:
     mlflow.set_tracking_uri(tracking_uri)
     model_uri = f"models:/{_MODEL_NAME}@{_MODEL_ALIAS}"
     log.info("Loading champion model from %s", model_uri)
-    model = mlflow.pyfunc.load_model(model_uri)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+
+    # Extract native LGBMRegressor from pyfunc wrapper
+    # (avoids schema-validation layer that rejects CategoricalDtype)
+    native_model = pyfunc_model._model_impl.lgb_model
+
+    # Read the full ordered column list from the registered model signature.
+    # This is the 21-column training schema (18 base + garch + rv_22_eth +
+    # rv_22_btc + asset) that every inference row must match.
+    schema = pyfunc_model.metadata.get_input_schema()
+    model_columns = [c.name for c in schema.inputs]
+    log.info("Model signature columns: %s", model_columns)
 
     client = mlflow.MlflowClient()
     mv = client.get_model_version_by_alias(_MODEL_NAME, _MODEL_ALIAS)
     version = str(mv.version)
     log.info("Champion model loaded: version=%s alias=%s", version, _MODEL_ALIAS)
-    return model, version, _MODEL_ALIAS
+    return native_model, version, _MODEL_ALIAS, model_columns
 
 
 # ---------------------------------------------------------------------------
@@ -92,10 +115,11 @@ def _load_champion_model() -> tuple:
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ANN001
     """FastAPI lifespan: load @champion model at startup, clear on shutdown."""
-    model, version, alias = _load_champion_model()
+    model, version, alias, model_columns = _load_champion_model()
     _model_state["model"] = model
     _model_state["version"] = version
     _model_state["alias"] = alias
+    _model_state["model_columns"] = model_columns
     log.info("Serving %s@%s version=%s", _MODEL_NAME, alias, version)
     yield
     _model_state.clear()
@@ -156,6 +180,22 @@ def _build_cross_asset_dfs(
     return cross
 
 
+def _data_root() -> Path:
+    """Return the data root directory.
+
+    Resolution order:
+    1. ``VOLFORECAST_DATA_ROOT`` environment variable (set by the container to /data)
+    2. ``{project_root()}/data`` (local dev default)
+
+    The container separates VOLFORECAST_ROOT (code/config at /app) from
+    VOLFORECAST_DATA_ROOT (bind-mounted data at /data) so both are accessible.
+    """
+    env_data = os.environ.get("VOLFORECAST_DATA_ROOT")
+    if env_data:
+        return Path(env_data)
+    return project_root() / "data"
+
+
 def _forecast_for(symbols: list[str]) -> list[AssetForecast]:
     """Compute next-day variance forecasts for the given symbol list.
 
@@ -174,9 +214,10 @@ def _forecast_for(symbols: list[str]) -> list[AssetForecast]:
     model = _model_state["model"]
     model_version: str = _model_state["version"]
     alias: str = _model_state["alias"]
+    model_columns: list[str] = _model_state.get("model_columns", [])
 
     # --- Determine data root ---
-    data_root = project_root() / "data"
+    data_root = _data_root()
 
     # --- Load all raw processed DataFrames (needed for cross-asset base feats) ---
     assets_cfg = load_assets(project_root() / "config" / "assets.yaml")
@@ -240,7 +281,17 @@ def _forecast_for(symbols: list[str]) -> list[AssetForecast]:
         last_row["asset"] = sym
         last_row["asset"] = last_row["asset"].astype(ASSET_DTYPE)
 
-        # Predict (pyfunc returns np.ndarray)
+        # Reindex to the full training schema (NaN-fill optional cross-asset cols).
+        # This mirrors evaluate_per_asset's reindex logic so the native LightGBM
+        # model receives exactly the 21-column schema it was trained on.
+        if model_columns:
+            last_row = last_row.reindex(columns=model_columns)
+            # Re-apply ASSET_DTYPE after reindex (reindex may drop category dtype)
+            last_row["asset"] = last_row["asset"].astype(ASSET_DTYPE)
+
+        # Predict via native LGBMRegressor (bypasses pyfunc schema coercion
+        # which can't convert CategoricalDtype to string required by pyfunc).
+        # Native predict returns np.ndarray of log-variance predictions.
         log_var_pred = model.predict(last_row)
         # Ensure we have a 1-element array
         if hasattr(log_var_pred, "__len__"):
