@@ -14,6 +14,7 @@ No fixtures or network calls — all data is constructed inline.
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from volforecast.eval.metrics import QLIKE_FLOOR, mae, qlike, rmse
 
@@ -78,6 +79,46 @@ class TestQlikeNonNegativity:
         result = qlike(rv, forecast_zero)
         assert not np.isinf(result), "QLIKE returned Inf for zero forecast_var"
         assert not np.isnan(result), "QLIKE returned NaN for zero forecast_var"
+
+    def test_qlike_no_inf_on_zero_realized(self) -> None:
+        """WR-02 regression: rv_var=0 must be floored, not produce +inf.
+
+        Without flooring the realized side, ratio -> 0 and -ln(ratio) -> +inf.
+        Phase-4 promotion-gate callers may not pre-filter zero-RV rows
+        (yfinance adjusted-close artifacts), so qlike itself must be safe.
+        """
+        rv_zero = np.array([0.0, 0.001])
+        forecast = np.array([0.001, 0.001])
+        result = qlike(rv_zero, forecast)
+        assert np.isfinite(result), f"QLIKE not finite for zero rv_var: {result}"
+        assert result >= 0.0
+
+    def test_qlike_zero_rv_matches_floored_rv(self) -> None:
+        """Value-level: qlike with rv=0 equals qlike with rv=QLIKE_FLOOR."""
+        forecast = np.array([0.001, 0.002])
+        result_zero = qlike(np.array([0.0, 0.0]), forecast)
+        result_floor = qlike(np.array([QLIKE_FLOOR, QLIKE_FLOOR]), forecast)
+        assert abs(result_zero - result_floor) < 1e-12, (
+            "rv_var=0 is not being floored to QLIKE_FLOOR"
+        )
+
+    def test_qlike_both_zero_is_zero(self) -> None:
+        """rv=0 and forecast=0 both floor to QLIKE_FLOOR -> perfect-forecast 0."""
+        zeros = np.array([0.0, 0.0])
+        assert abs(qlike(zeros, zeros)) < 1e-12
+
+    def test_qlike_raises_on_nan_input(self) -> None:
+        """WR-02: non-finite results (from NaN inputs) must raise ValueError,
+        not silently propagate NaN into promotion decisions."""
+        with pytest.raises(ValueError, match="non-finite"):
+            qlike(np.array([0.001, np.nan]), np.array([0.001, 0.001]))
+        with pytest.raises(ValueError, match="non-finite"):
+            qlike(np.array([0.001, 0.001]), np.array([np.nan, 0.001]))
+
+    def test_qlike_raises_on_inf_input(self) -> None:
+        """Inf inputs must also surface as ValueError."""
+        with pytest.raises(ValueError, match="non-finite"):
+            qlike(np.array([np.inf, 0.001]), np.array([0.001, 0.001]))
 
 
 class TestQlikeFloor:

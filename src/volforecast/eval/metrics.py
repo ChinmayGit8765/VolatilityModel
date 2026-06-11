@@ -39,8 +39,8 @@ from __future__ import annotations
 
 import numpy as np
 
-# Minimum forecast variance value — clips near-zero or zero forecast_var to
-# prevent log(0) or division-by-zero in QLIKE.
+# Minimum variance value — clips near-zero or zero inputs (BOTH realized and
+# forecast variance) to prevent log(0) or division-by-zero in QLIKE.
 # Value chosen to be well below any realistic realized daily variance
 # (typical daily equity ~1e-4, crypto ~5e-4).
 QLIKE_FLOOR: float = 1e-10
@@ -49,7 +49,14 @@ QLIKE_FLOOR: float = 1e-10
 def qlike(rv_var: np.ndarray, forecast_var: np.ndarray) -> float:
     """Canonical QLIKE loss in the Patton (2011) variance form.
 
-    QLIKE = mean(ratio - ln(ratio) - 1)  where ratio = rv_var / max(forecast_var, QLIKE_FLOOR)
+    QLIKE = mean(ratio - ln(ratio) - 1)
+    where ratio = max(rv_var, QLIKE_FLOOR) / max(forecast_var, QLIKE_FLOOR)
+
+    BOTH inputs are floored at QLIKE_FLOOR (WR-02): a zero realized variance
+    (e.g. identical consecutive closes from yfinance adjusted-close artifacts)
+    would otherwise drive ratio -> 0 and -ln(ratio) -> +inf, silently
+    corrupting the shared promotion-gate metric for callers that do not
+    pre-filter zero-RV rows.
 
     Properties:
     - qlike(x, x) == 0 for all positive x  (mandatory identity)
@@ -60,12 +67,19 @@ def qlike(rv_var: np.ndarray, forecast_var: np.ndarray) -> float:
     Args:
         rv_var: Realized variance (proxy). Array-like of positive floats.
                 Units: daily decimal variance (e.g., ~1e-4 for equity).
+                Clipped to QLIKE_FLOOR to prevent log(0).
         forecast_var: Forecast variance. Array-like of positive floats.
                       Clipped to QLIKE_FLOOR to prevent log(0)/div-by-zero.
                       Units must match rv_var.
 
     Returns:
-        Scalar mean QLIKE loss. Always >= 0.
+        Scalar mean QLIKE loss. Always >= 0 and finite.
+
+    Raises:
+        ValueError: If the result is non-finite (NaN/inf), which can only be
+            caused by non-finite inputs (NaN or inf values) — these indicate
+            an upstream bug and must not silently propagate into model
+            comparison / promotion decisions.
 
     Example:
         >>> import numpy as np
@@ -73,10 +87,16 @@ def qlike(rv_var: np.ndarray, forecast_var: np.ndarray) -> float:
         >>> abs(qlike(x, x)) < 1e-12
         True
     """
-    rv = np.asarray(rv_var, dtype=float)
+    rv = np.maximum(np.asarray(rv_var, dtype=float), QLIKE_FLOOR)
     h = np.maximum(np.asarray(forecast_var, dtype=float), QLIKE_FLOOR)
     ratio = rv / h
-    return float(np.mean(ratio - np.log(ratio) - 1.0))
+    result = float(np.mean(ratio - np.log(ratio) - 1.0))
+    if not np.isfinite(result):
+        raise ValueError(
+            f"qlike produced a non-finite result ({result}) — inputs contain "
+            "NaN or inf values; clean the forecast/realized arrays upstream"
+        )
+    return result
 
 
 def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
