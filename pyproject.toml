@@ -20,6 +20,8 @@ dependencies = [
     "pyyaml>=6",
     "psycopg2-binary",
     "tenacity>=8",
+    "arch>=8,<9",
+    "statsmodels>=0.14",
 ]
 
 [project.scripts]
