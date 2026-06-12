@@ -62,6 +62,7 @@ def _make_target_series(n: int, nan_tail: int = 1) -> pd.Series:
 class TestRowCount:
     def test_row_count_equals_train_idx_minus_nan(self):
         """Pooled row count = sum of (len(train_idx) - nan_target_rows_in_train)."""
+        sym_a, sym_b = "BTC-USD", "SPY"  # WR-04: KNOWN_ASSETS symbols only
         n_a, n_b = _N_ROWS, _N_ROWS
         nan_tail = 1  # 1 NaN row per asset per fold
         feat_a = _make_feature_df(n_a, "f_a")
@@ -76,8 +77,8 @@ class TestRowCount:
         splits_a = list(walk_forward_splits(n_a, min_train, step, horizon))
         splits_b = list(walk_forward_splits(n_b, min_train, step, horizon))
 
-        assert fold_i < len(splits_a), "fold_i must be valid for asset A"
-        assert fold_i < len(splits_b), "fold_i must be valid for asset B"
+        assert fold_i < len(splits_a), f"fold_i must be valid for {sym_a}"
+        assert fold_i < len(splits_b), f"fold_i must be valid for {sym_b}"
 
         train_idx_a = splits_a[fold_i].train_idx
         train_idx_b = splits_b[fold_i].train_idx
@@ -88,8 +89,8 @@ class TestRowCount:
         expected_rows = non_nan_a + non_nan_b
 
         X, y = assemble_pooled_train(
-            {"A": feat_a, "B": feat_b},
-            {"A": tgt_a, "B": tgt_b},
+            {sym_a: feat_a, sym_b: feat_b},
+            {sym_a: tgt_a, sym_b: tgt_b},
             fold_i=fold_i,
             min_train=min_train,
             step=step,
@@ -101,8 +102,8 @@ class TestRowCount:
 
     def test_x_y_lengths_match(self):
         """X and y must always have the same length."""
-        feat = {"A": _make_feature_df(_N_ROWS)}
-        tgt = {"A": _make_target_series(_N_ROWS)}
+        feat = {"BTC-USD": _make_feature_df(_N_ROWS)}
+        tgt = {"BTC-USD": _make_target_series(_N_ROWS)}
         X, y = assemble_pooled_train(feat, tgt, fold_i=0)
         assert len(X) == len(y)
 
@@ -120,7 +121,13 @@ class TestNoLeakage:
         positions by injecting a 'orig_pos' column into each asset's feature
         DataFrame, then verify that none of the positions in any asset's
         test_idx for fold_i appear in the corresponding rows of the pooled X.
+
+        WR-04: symbols MUST be from KNOWN_ASSETS — unknown symbols become NaN
+        categories under ASSET_DTYPE, so `X["asset"] == "A"` selects nothing
+        and the leakage assertion passes vacuously.  Non-empty selections are
+        asserted explicitly.
         """
+        sym_a, sym_b = "BTC-USD", "SPY"
         n_a, n_b = _N_ROWS, _N_ROWS
         min_train, step, horizon = 252, 21, 1
         fold_i = 0
@@ -140,25 +147,30 @@ class TestNoLeakage:
         test_idx_b = set(splits_b[fold_i].test_idx.tolist())
 
         X, _y = assemble_pooled_train(
-            {"A": feat_a, "B": feat_b},
-            {"A": tgt_a, "B": tgt_b},
+            {sym_a: feat_a, sym_b: feat_b},
+            {sym_a: tgt_a, sym_b: tgt_b},
             fold_i=fold_i,
             min_train=min_train,
             step=step,
             horizon=horizon,
         )
 
-        # Rows for asset A in the pooled X
-        rows_a = X.loc[X["asset"] == "A", "orig_pos"].tolist()
-        rows_b = X.loc[X["asset"] == "B", "orig_pos"].tolist()
+        # Rows for each asset in the pooled X
+        rows_a = X.loc[X["asset"] == sym_a, "orig_pos"].tolist()
+        rows_b = X.loc[X["asset"] == sym_b, "orig_pos"].tolist()
+
+        # WR-04: the selections must be NON-EMPTY or the leakage assertions
+        # below are vacuous.
+        assert rows_a, f"no pooled rows selected for {sym_a} — vacuous test"
+        assert rows_b, f"no pooled rows selected for {sym_b} — vacuous test"
 
         # THE KEY INVARIANT: no test-fold position from A in A's contribution
         leaked_a = set(rows_a) & test_idx_a
-        assert not leaked_a, f"Asset A test-fold positions leaked into pooled train: {leaked_a}"
+        assert not leaked_a, f"{sym_a} test-fold positions leaked into pooled train: {leaked_a}"
 
         # No test-fold position from B in B's contribution
         leaked_b = set(rows_b) & test_idx_b
-        assert not leaked_b, f"Asset B test-fold positions leaked into pooled train: {leaked_b}"
+        assert not leaked_b, f"{sym_b} test-fold positions leaked into pooled train: {leaked_b}"
 
     def test_no_future_train_positions(self):
         """All train positions are strictly less than test start position."""
@@ -166,9 +178,9 @@ class TestNoLeakage:
         min_train, step, horizon = 252, 21, 1
         fold_i = 0
 
-        feat = {"A": _make_feature_df(n, "f")}
-        feat["A"]["orig_pos"] = np.arange(n)
-        tgt = {"A": _make_target_series(n)}
+        feat = {"ETH-USD": _make_feature_df(n, "f")}
+        feat["ETH-USD"]["orig_pos"] = np.arange(n)
+        tgt = {"ETH-USD": _make_target_series(n)}
 
         splits = list(walk_forward_splits(n, min_train, step, horizon))
         test_start = splits[fold_i].test_idx.min()
@@ -177,6 +189,7 @@ class TestNoLeakage:
             feat, tgt, fold_i=fold_i, min_train=min_train, step=step, horizon=horizon
         )
 
+        assert len(X) > 0, "no pooled rows — vacuous test (WR-04)"
         max_train_pos = X["orig_pos"].max()
         assert max_train_pos < test_start, (
             f"Training includes positions at or after test start "
@@ -191,7 +204,10 @@ class TestNoLeakage:
         could mix A's test rows into B's train rows. Position-based selection
         (correct) guarantees independence because positions are per-asset.
         """
-        # Two assets with DIFFERENT lengths so their fold structures diverge
+        # Two assets with DIFFERENT lengths so their fold structures diverge.
+        # WR-04: symbols must be from KNOWN_ASSETS (unknown symbols become NaN
+        # categories and empty selections make the assertions vacuous).
+        sym_a, sym_b = "AAPL", "MSFT"
         n_a, n_b = _N_ROWS, _N_ROWS + 50
         min_train, step, horizon = 252, 21, 1
         fold_i = 0
@@ -211,19 +227,22 @@ class TestNoLeakage:
         test_idx_b = set(splits_b[fold_i].test_idx.tolist())
 
         X, _ = assemble_pooled_train(
-            {"A": feat_a, "B": feat_b},
-            {"A": tgt_a, "B": tgt_b},
+            {sym_a: feat_a, sym_b: feat_b},
+            {sym_a: tgt_a, sym_b: tgt_b},
             fold_i=fold_i,
             min_train=min_train,
             step=step,
             horizon=horizon,
         )
 
-        rows_a = set(X.loc[X["asset"] == "A", "orig_pos"].tolist())
-        rows_b = set(X.loc[X["asset"] == "B", "orig_pos"].tolist())
+        rows_a = set(X.loc[X["asset"] == sym_a, "orig_pos"].tolist())
+        rows_b = set(X.loc[X["asset"] == sym_b, "orig_pos"].tolist())
 
-        assert not (rows_a & test_idx_a), "A's test positions in A's train rows"
-        assert not (rows_b & test_idx_b), "B's test positions in B's train rows"
+        assert rows_a, f"no pooled rows selected for {sym_a} — vacuous test (WR-04)"
+        assert rows_b, f"no pooled rows selected for {sym_b} — vacuous test (WR-04)"
+
+        assert not (rows_a & test_idx_a), f"{sym_a}'s test positions in its train rows"
+        assert not (rows_b & test_idx_b), f"{sym_b}'s test positions in its train rows"
 
 
 # ---------------------------------------------------------------------------
@@ -294,8 +313,8 @@ class TestFoldSkipping:
     def test_fold_i_beyond_all_assets_raises(self):
         """fold_i larger than all assets' split counts raises ValueError."""
         # fold_i=9999 will exceed any reasonable number of splits for n=300
-        feat = {"A": _make_feature_df(_N_ROWS)}
-        tgt = {"A": _make_target_series(_N_ROWS)}
+        feat = {"BTC-USD": _make_feature_df(_N_ROWS)}
+        tgt = {"BTC-USD": _make_target_series(_N_ROWS)}
         with pytest.raises(ValueError, match="empty pooled training set"):
             assemble_pooled_train(feat, tgt, fold_i=9999)
 
@@ -339,15 +358,15 @@ class TestNanTargetExclusion:
         n = _N_ROWS
         nan_tail = 5  # more than 1 to make the exclusion clearly measurable
 
-        feat = {"A": _make_feature_df(n)}
-        tgt = {"A": _make_target_series(n, nan_tail=nan_tail)}
+        feat = {"SPY": _make_feature_df(n)}
+        tgt = {"SPY": _make_target_series(n, nan_tail=nan_tail)}
 
         min_train, step, horizon = 252, 21, 1
         splits = list(walk_forward_splits(n, min_train, step, horizon))
         train_idx = splits[0].train_idx
 
         # Count how many NaN targets are in the train window
-        nan_in_train = int(tgt["A"].iloc[train_idx].isna().sum())
+        nan_in_train = int(tgt["SPY"].iloc[train_idx].isna().sum())
 
         X, y = assemble_pooled_train(
             feat, tgt, fold_i=0, min_train=min_train, step=step, horizon=horizon
@@ -361,10 +380,10 @@ class TestNanTargetExclusion:
 
     def test_y_contains_no_nan(self):
         """y returned by assemble_pooled_train must never contain NaN."""
-        feat = {"A": _make_feature_df(_N_ROWS), "B": _make_feature_df(_N_ROWS)}
+        feat = {"BTC-USD": _make_feature_df(_N_ROWS), "SPY": _make_feature_df(_N_ROWS)}
         tgt = {
-            "A": _make_target_series(_N_ROWS, nan_tail=1),
-            "B": _make_target_series(_N_ROWS, nan_tail=3),
+            "BTC-USD": _make_target_series(_N_ROWS, nan_tail=1),
+            "SPY": _make_target_series(_N_ROWS, nan_tail=3),
         }
         _, y = assemble_pooled_train(feat, tgt, fold_i=0)
         assert y.isna().sum() == 0
