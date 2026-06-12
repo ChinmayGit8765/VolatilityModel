@@ -291,8 +291,10 @@ def _forecast_for(symbols: list[str]) -> list[AssetForecast]:
 
         # Predict via native LGBMRegressor (bypasses pyfunc schema coercion
         # which can't convert CategoricalDtype to string required by pyfunc).
+        # CR-02: validate_features=True makes a column name/order mismatch
+        # raise loudly instead of silently scoring a transposed matrix.
         # Native predict returns np.ndarray of log-variance predictions.
-        log_var_pred = model.predict(last_row)
+        log_var_pred = model.predict(last_row, validate_features=True)
         # Ensure we have a 1-element array
         if hasattr(log_var_pred, "__len__"):
             log_var_val = float(log_var_pred[0])

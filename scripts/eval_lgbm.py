@@ -116,13 +116,9 @@ def _collect_per_fold_rows(
     The walk-forward folds are IDENTICAL for LightGBM and all three baselines
     (T-03-08 compliance): splits are computed once per asset and shared.
     """
-    # All feature columns union (for LightGBM reindexing — same as evaluate_per_asset)
-    all_feat_cols: list[str] = []
-    for df in asset_feature_dfs.values():
-        for c in df.columns:
-            if c not in all_feat_cols:
-                all_feat_cols.append(c)
-    all_feat_cols_with_asset = all_feat_cols + ["asset"]
+    # CR-02: the model's training column order is the single source of truth
+    # for the eval feature schema — same discipline as evaluate_per_asset.
+    feature_order = list(model.feature_name_)
 
     rows: list[dict] = []
 
@@ -151,11 +147,12 @@ def _collect_per_fold_rows(
             test_idx = split.test_idx
             test_dates = feat_df.index[test_idx]
 
-            # LightGBM prediction (same as evaluate_per_asset)
+            # LightGBM prediction (same as evaluate_per_asset).
+            # CR-02: reindex to the model's exact training column order and
+            # validate feature names so a transposed frame raises loudly.
             x_test = feat_df.iloc[test_idx].copy()
             x_test["asset"] = symbol
-            x_test["asset"] = x_test["asset"].astype(ASSET_DTYPE)
-            x_test = x_test.reindex(columns=all_feat_cols_with_asset)
+            x_test = x_test.reindex(columns=feature_order)
             x_test["asset"] = x_test["asset"].astype(ASSET_DTYPE)
 
             y_test_log = log_target.iloc[test_idx]
@@ -168,7 +165,7 @@ def _collect_per_fold_rows(
             if len(x_test_valid) == 0:
                 continue
 
-            preds_log = model.predict(x_test_valid)
+            preds_log = model.predict(x_test_valid, validate_features=True)
             lgbm_var_arr = from_log_var(preds_log)
             true_var_arr = from_log_var(y_test_log_valid.values)
 

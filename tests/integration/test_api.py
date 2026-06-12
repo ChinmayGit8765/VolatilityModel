@@ -33,9 +33,13 @@ LOG_VAR_STUB = -8.0  # exp(-8) ≈ 3.35e-4, a plausible variance
 
 
 class _StubModel:
-    """Mimics mlflow.pyfunc.PyFuncModel.predict() — returns fixed log-var array."""
+    """Mimics native LGBMRegressor.predict() — returns fixed log-var array.
 
-    def predict(self, df: pd.DataFrame) -> np.ndarray:
+    Accepts **kwargs so the serving layer's ``validate_features=True`` (CR-02)
+    passes through without error.
+    """
+
+    def predict(self, df: pd.DataFrame, **kwargs) -> np.ndarray:
         return np.full(len(df), LOG_VAR_STUB)
 
 

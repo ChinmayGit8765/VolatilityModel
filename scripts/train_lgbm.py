@@ -228,7 +228,16 @@ def main() -> None:
     x_val_sample = pd.concat(x_val_parts, ignore_index=True)
     x_test_all = pd.concat(x_test_parts, ignore_index=True)
 
-    val_preds = model.predict(x_val_sample)
+    # CR-02: reindex to the model's exact training column order — never rely
+    # on pandas concat column-union order matching the training assembly.
+    # The registered signature therefore records the training order exactly.
+    feature_order = list(model.feature_name_)
+    x_val_sample = x_val_sample.reindex(columns=feature_order)
+    x_val_sample["asset"] = x_val_sample["asset"].astype(ASSET_DTYPE)
+    x_test_all = x_test_all.reindex(columns=feature_order)
+    x_test_all["asset"] = x_test_all["asset"].astype(ASSET_DTYPE)
+
+    val_preds = model.predict(x_val_sample, validate_features=True)
     signature = infer_signature(x_val_sample, val_preds)
 
     # --- Data lineage tags ---

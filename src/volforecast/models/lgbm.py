@@ -581,12 +581,15 @@ def evaluate_per_asset(
     scoring, so all metrics are on the VARIANCE scale — apples-to-apples
     comparison with ``reports/baseline_metrics.csv``.
 
-    Cross-asset column alignment: different assets have different cross-asset
-    feature columns (e.g. ``rv_22_eth`` for BTC, ``rv_22_btc`` for others).
-    The pooled training DataFrame includes all columns (NaN-padded for assets
-    that lack a cross-asset column).  At evaluation time, test DataFrames are
-    reindexed to the full union of feature columns so LightGBM receives the
-    same feature schema as during training.
+    Cross-asset column alignment (CR-02): different assets have different
+    cross-asset feature columns (e.g. ``rv_22_eth`` for BTC, ``rv_22_btc``
+    for others).  At evaluation time, every test DataFrame is reindexed to
+    ``model.feature_name_`` — the EXACT column order the model was trained
+    on.  Missing cross-asset columns are NaN-filled (same as in pooled
+    training) and ``predict`` is called with ``validate_features=True`` so a
+    name/order mismatch raises instead of silently scoring a transposed
+    matrix (LightGBM's default ``validate_features=False`` checks only the
+    column COUNT).
 
     Args:
         model: Fitted LGBMRegressor (native model object, not pyfunc).
@@ -600,15 +603,9 @@ def evaluate_per_asset(
         Dict ``{symbol: {"rmse": ..., "mae": ..., "qlike": ...,
         "n_forecasts": ...}}``.
     """
-    # Build the full column union (all feature cols + 'asset') so that each
-    # asset's test DataFrame can be reindexed to match the training schema.
-    # Missing cross-asset columns are NaN-filled (same as in pooled training).
-    all_feat_cols: list[str] = []
-    for df in asset_feature_dfs.values():
-        for c in df.columns:
-            if c not in all_feat_cols:
-                all_feat_cols.append(c)
-    all_feat_cols_with_asset = all_feat_cols + ["asset"]
+    # The model's training column order is the single source of truth for the
+    # eval feature schema (CR-02 — never rebuild the column union by hand).
+    feature_order = list(model.feature_name_)
 
     results: dict[str, dict[str, float]] = {}
 
@@ -621,11 +618,12 @@ def evaluate_per_asset(
             test_idx = split.test_idx
             x_test = feat_df.iloc[test_idx].copy()
             x_test["asset"] = symbol
-            x_test["asset"] = x_test["asset"].astype(ASSET_DTYPE)
 
-            # Reindex to full column union (NaN-fill missing cross-asset cols)
-            x_test = x_test.reindex(columns=all_feat_cols_with_asset)
-            # Re-apply ASSET_DTYPE after reindex (reindex may lose category dtype)
+            # Reindex to the model's exact training column order (CR-02).
+            # Missing cross-asset columns are NaN-filled; extras dropped.
+            x_test = x_test.reindex(columns=feature_order)
+            # Restore ASSET_DTYPE after reindex (categorical dtype must match
+            # training exactly — Pitfall 3).
             x_test["asset"] = x_test["asset"].astype(ASSET_DTYPE)
 
             # Compute realized variance (variance scale, not log)
@@ -637,7 +635,7 @@ def evaluate_per_asset(
             x_test_valid = x_test.loc[valid_mask]
             y_test_log_valid = y_test_log.loc[valid_mask]
 
-            preds_log = model.predict(x_test_valid)
+            preds_log = model.predict(x_test_valid, validate_features=True)
             preds_var = from_log_var(preds_log)
             true_var = from_log_var(y_test_log_valid.values)
 
