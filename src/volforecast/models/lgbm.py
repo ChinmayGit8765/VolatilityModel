@@ -312,10 +312,12 @@ def _build_inner_val_set(
         split = splits[outer_fold_i]
         train_idx = split.train_idx  # strictly inside train window
 
-        # Inner val = last (_INNER_VAL_FOLDS * step) positions of train_idx
+        # Inner val = last (_INNER_VAL_FOLDS * step) positions of train_idx.
+        # WR-03: the carve must also leave room for the `horizon` purge gap
+        # between inner-train and inner-val (mirror of _build_inner_train_set).
         n_val = _INNER_VAL_FOLDS * step
-        if len(train_idx) <= n_val:
-            # Train window too small to carve out inner val — skip
+        if len(train_idx) <= n_val + horizon:
+            # Train window too small to carve out inner val + purge — skip
             continue
 
         inner_val_idx = train_idx[-n_val:]
@@ -358,11 +360,15 @@ def _build_inner_train_set(
         train_idx = split.train_idx
 
         n_val = _INNER_VAL_FOLDS * step
-        if len(train_idx) <= n_val:
-            # Use full train window as inner train (no inner val — handled in val builder)
+        if len(train_idx) <= n_val + horizon:
+            # Use full train window as inner train (no inner val — the val
+            # builder skips this asset under the same condition)
             inner_train_idx = train_idx
         else:
-            inner_train_idx = train_idx[:-n_val]
+            # WR-03: purge `horizon` positions between inner-train and
+            # inner-val — the last inner-train labels (computed at t+horizon)
+            # would otherwise overlap the first inner-val observations.
+            inner_train_idx = train_idx[: -(n_val + horizon)]
 
         x_tr = feat_df.iloc[inner_train_idx].copy()
         x_tr["asset"] = symbol
