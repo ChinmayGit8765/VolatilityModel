@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: "Roadmap and state initialized; ready for `/gsd:plan-phase 1`"
-last_updated: "2026-06-11T10:01:56.544Z"
-last_activity: 2026-06-11 -- Phase 03 execution started
+last_updated: "2026-06-12T16:09:49.000Z"
+last_activity: 2026-06-12 -- Phase 04 execution started
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 8
-  percent: 40
+  completed_phases: 3
+  total_plans: 17
+  completed_plans: 12
+  percent: 60
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-10)
 
 **Core value:** Honestly benchmark an ML volatility model against the correct classical baselines (GARCH(1,1)/EWMA/HAR-RV) under leak-free walk-forward evaluation, inside a genuine end-to-end MLOps lifecycle.
-**Current focus:** Phase 03 — ml-challenger-serving
+**Current focus:** Phase 04 — monitoring-orchestration-retraining
 
 ## Current Position
 
-Phase: 03 (ml-challenger-serving) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 03
-Last activity: 2026-06-11 -- Phase 03 execution started
+Phase: 04 (monitoring-orchestration-retraining) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 04
+Last activity: 2026-06-12 -- Phase 04 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
