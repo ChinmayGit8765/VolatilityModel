@@ -42,6 +42,17 @@ ENV MLFLOW_TRACKING_URI=http://mlflow-server:5000
 # Prediction log path inside the bind-mounted data volume (Pitfall 7)
 ENV PREDICTION_LOG_PATH=/data/predictions/predictions.parquet
 
+# WR-08: run as a non-root user.  A compromised service process can then no
+# longer write as root through the /data bind mount into the host repo, nor
+# modify the installed environment under /app.
+# Tradeoff (documented): /data stays writable by design — the prediction log
+# lives there (Phase 4 contract), and Docker Desktop's WSL2 file sharing maps
+# host bind mounts world-writable anyway.  Acceptable for a loopback-only
+# local dev stack; a cloud deploy should use a dedicated volume instead.
+RUN useradd --create-home --uid 1000 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
 # Start the ASGI server bound to all interfaces on port 8000.
 # The host-side compose binding (127.0.0.1:8000:8000) enforces loopback isolation.
 # WR-07: --no-sync prevents uv from re-resolving/re-installing the environment
