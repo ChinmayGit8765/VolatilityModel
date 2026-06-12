@@ -87,8 +87,8 @@ Plans:
   5. A challenger is promoted only if it beats the champion on rolling QLIKE over a frozen comparison window — default outcome is no-promote, and rollback is demonstrated as a single alias flip
 **Plans**: 5 plans
 Plans:
-- [ ] 04-01-PLAN.md — Labeller + GARCH live forecasts → forecast_vs_realized.parquet (MON-01)
-- [ ] 04-02-PLAN.md — Evidently dep + frozen reference snapshot + distribution-drift adapter (MON-02)
+- [x] 04-01-PLAN.md — Labeller + GARCH live forecasts → forecast_vs_realized.parquet (MON-01)
+- [x] 04-02-PLAN.md — Evidently dep + frozen reference snapshot + distribution-drift adapter (MON-02)
 - [ ] 04-03-PLAN.md — Rolling-QLIKE champion-vs-GARCH performance monitor + configurable alert channel (MON-03, MON-04)
 - [ ] 04-04-PLAN.md — QLIKE-gated champion/challenger promotion + alias-flip rollback (ORCH-03)
 - [ ] 04-05-PLAN.md — Prefect daily flow (ingest→...→promotion-gate) + deployment + worker code mount (ORCH-01, ORCH-02)
@@ -115,7 +115,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
 | 2. Features, Target & Classical Baselines | 4/4 | Complete   | 2026-06-11 |
 | 3. ML Challenger & Serving | 4/4 | Complete   | 2026-06-11 |
-| 4. Monitoring, Orchestration & Retraining | 0/5 | Planned | - |
+| 4. Monitoring, Orchestration & Retraining | 2/5 | In Progress|  |
 | 5. Dashboard & Honest Documentation | 0/TBD | Not started | - |
 
 ---
