@@ -74,3 +74,32 @@ Training concat yields `[...base, rv_22_eth, asset, rv_22_btc]`; eval builds `[.
 
 ---
 _Reviewer: gsd-code-reviewer (returned inline; artifact written by orchestrator)_
+
+## Fix Status (2026-06-13)
+
+Scope: CR-01, CR-02, WR-01..WR-10 (Info findings out of scope, deferred).
+
+| Finding | Status | Commit | Fix summary |
+|---------|--------|--------|-------------|
+| CR-01 | fixed | `d68724f` | `train_per_fold_models()` trains one pooled model per outer fold; `evaluate_per_asset`/`_collect_per_fold_rows` take a fold→model mapping and score fold k only with fold k's model (final-fold fallback for longer assets, leak-free under expanding window). Champion stays the final-fold model; eval_lgbm retrains fold models from the champion run's logged params. New leak tests in `tests/unit/test_lgbm_eval.py`. |
+| CR-02 | fixed | `7677333` | All eval/serving paths reindex frames to `model.feature_name_` exact order, restore ASSET_DTYPE post-reindex, and call `predict(..., validate_features=True)`. Regression test asserts metrics invariant to scrambled column order. |
+| WR-01 | fixed | `dd6964b` | `assign_vol_terciles` labels via `np.where` quantile comparison (identical boundary semantics, no monotonic-bins requirement). Regression test: 40% mass tied at floored minimum. |
+| WR-02 | fixed | `c7237af` | Both eval paths drop rows with `rv <= LOG_VAR_EPS * (1 + 1e-9)` (the floored-zero round-trip value). Test asserts floored zeros excluded from n_forecasts. |
+| WR-03 | fixed | `39048a6` | `inner_train_idx = train_idx[:-(n_val + horizon)]`; val builder skips an asset under the matching `<= n_val + horizon` condition. |
+| WR-04 | fixed | `5d97699` | Fold tests use KNOWN_ASSETS symbols and assert non-empty asset row selections (previously NaN categories made the leakage assertions vacuous). |
+| WR-05 | fixed | `275b1a9` | Serving and eval both load via `mlflow.lightgbm.load_model("models:/volforecast-lgbm@champion")`; serving reads the signature via `mlflow.models.get_model_info`. No pyfunc internals, no runs:/ URI. |
+| WR-06 | fixed | `441154b` | `_forecast_for` dropna scoped to model-consumed columns; staleness guard 503s when the freshest usable feature row lags newest raw data beyond `VOLFORECAST_MAX_STALENESS_DAYS` (default 7). Hermetic 503 test added. |
+| WR-07 | fixed | `b1cdcbf` | Dockerfile: deps layer with `uv sync --no-dev --frozen --no-install-project`, project install after `COPY src/`, CMD uses `uv run --no-sync`. Fresh `--build` verified. |
+| WR-08 | fixed | `bc26750` | API container runs as non-root `appuser` (uid 1000); /data write tradeoff documented in Dockerfile. Verified live: `docker exec infra-api-1 whoami` → `appuser`. |
+| WR-09 | fixed | `cbb4461` | `--allowed-hosts 'localhost,localhost:5000,127.0.0.1,127.0.0.1:5000,mlflow-server,mlflow-server:5000'`. Server restarted; host-side and compose-internal clients verified. |
+| WR-10 | fixed | `2434072` | Baseline forecast series reindexed to `feat_df.index` before the fold loop; positional selection now correct by construction. |
+| IN-01..IN-06 | deferred | — | Info tier, out of fix scope per review workflow. |
+
+**Runtime verification (artifacts regenerated, commit `d6bfc50`):**
+- mlflow-server restarted with explicit allowed-hosts → `/health` 200 from host.
+- `scripts/train_lgbm.py` reran: champion **volforecast-lgbm v4**, `@champion` alias moved, lineage tags set (run `9a3cd89273b241ebbd684ea8df4b7c19`).
+- `scripts/eval_lgbm.py` reran with per-fold models: `reports/ml_vs_baselines.{md,csv}` regenerated. Honest leak-free outcome: LightGBM QLIKE is worse than the best classical baseline for every asset overall (e.g. SPY 2.69 vs EWMA 1.63) — reported plainly in Section 4, as intended.
+- API rebuilt from scratch (`docker compose up -d --build api`): `/health` → `{"status":"ok","model_version":"4"}`; `/forecast` → 5 assets, all `model_version="4"`, alias `champion`.
+- Full suite green at every fix commit: 401 passed, 2 skipped.
+
+_Fixer: Claude (gsd-code-fixer) — 2026-06-13_
