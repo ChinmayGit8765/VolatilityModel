@@ -229,6 +229,40 @@ def test_prediction_log_grows_single(api_client: TestClient, tmp_path: Path) -> 
     assert df.iloc[0]["asset"] == "SPY"
 
 
+def test_forecast_stale_data_503(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """WR-06: a feature row exceeding the staleness bound yields 503, not a
+    silently stale forecast.
+
+    Setting VOLFORECAST_MAX_STALENESS_DAYS=-1 makes even a zero-day gap trip
+    the guard, exercising the 503 path hermetically.
+    """
+    log_path = tmp_path / "predictions.parquet"
+    monkeypatch.setenv("PREDICTION_LOG_PATH", str(log_path))
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:9999")  # unreachable — OK
+    monkeypatch.setenv("VOLFORECAST_MAX_STALENESS_DAYS", "-1")
+    _write_synthetic_processed(tmp_path)
+    monkeypatch.setenv("VOLFORECAST_ROOT", str(tmp_path))
+
+    import importlib
+
+    import volforecast.serving.app as app_mod
+    import volforecast.serving.prediction_log as pl_mod
+
+    importlib.reload(pl_mod)
+    monkeypatch.setattr(
+        app_mod, "_load_champion_model", lambda: (_StubModel(), "3", "champion", [])
+    )
+
+    with TestClient(app_mod.app, raise_server_exceptions=True) as client:
+        resp = client.get("/forecast")
+
+    assert resp.status_code == 503
+    detail = str(resp.json().get("detail", ""))
+    # Generic detail — must NOT leak dates, paths, or stack traces
+    assert "Traceback" not in detail
+    assert "/data/" not in detail
+
+
 def test_forecast_model_version_propagated(api_client: TestClient) -> None:
     """model_version from the stub appears in every /forecast item."""
     resp = api_client.get("/forecast")

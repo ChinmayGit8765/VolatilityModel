@@ -43,6 +43,28 @@ log = logging.getLogger(__name__)
 _MODEL_NAME: str = "volforecast-lgbm"
 _MODEL_ALIAS: str = "champion"
 
+#: WR-06: maximum allowed gap (days) between the newest raw observation and
+#: the latest fully-populated feature row used for a forecast.  Beyond this,
+#: the service refuses (503) rather than silently serving a stale as-of row.
+#: Overridable via the VOLFORECAST_MAX_STALENESS_DAYS environment variable.
+_DEFAULT_MAX_STALENESS_DAYS: int = 7
+
+
+def _max_staleness_days() -> int:
+    """Return the staleness bound, from env or the module default."""
+    raw = os.environ.get("VOLFORECAST_MAX_STALENESS_DAYS")
+    if raw:
+        try:
+            return int(raw)
+        except ValueError:
+            log.warning(
+                "Invalid VOLFORECAST_MAX_STALENESS_DAYS=%r — using default %d",
+                raw,
+                _DEFAULT_MAX_STALENESS_DAYS,
+            )
+    return _DEFAULT_MAX_STALENESS_DAYS
+
+
 # ---------------------------------------------------------------------------
 # Module-level state — populated in lifespan, cleared on shutdown
 # ---------------------------------------------------------------------------
@@ -266,8 +288,15 @@ def _forecast_for(symbols: list[str]) -> list[AssetForecast]:
         # Build features via the single codepath (FEAT-07)
         feat_df = build_features(raw_df, cross_asset_dfs=cross_dfs or None, include_garch=True)
 
-        # Drop NaN rows (leading rows from rolling windows)
-        feat_df = feat_df.dropna()
+        # WR-06: drop rows with NaNs ONLY in the columns the model consumes.
+        # A full-row dropna() silently stepped back to an older as-of row
+        # whenever ANY column was NaN.  Cross-asset columns the asset lacks
+        # are NaN-filled at reindex time, so they must not gate row selection.
+        if model_columns:
+            required_cols = [c for c in model_columns if c != "asset" and c in feat_df.columns]
+        else:
+            required_cols = list(feat_df.columns)
+        feat_df = feat_df.dropna(subset=required_cols)
         if feat_df.empty:
             log.error("No non-NaN feature rows for %s", sym)
             raise HTTPException(status_code=500, detail="Service unavailable.")
@@ -275,6 +304,22 @@ def _forecast_for(symbols: list[str]) -> list[AssetForecast]:
         # Take the last as-of row
         last_row = feat_df.iloc[[-1]].copy()
         as_of_date = last_row.index[-1].date()
+
+        # WR-06: staleness guard — if the freshest usable feature row lags the
+        # newest raw observation by more than the bound, refuse to serve a
+        # silently stale forecast (generic detail, specifics in the log).
+        staleness_days = (raw_df.index[-1] - last_row.index[-1]).days
+        if staleness_days > _max_staleness_days():
+            log.error(
+                "Stale as-of row for %s: latest usable feature row %s lags newest "
+                "raw observation %s by %d days (bound: %d)",
+                sym,
+                last_row.index[-1].date(),
+                raw_df.index[-1].date(),
+                staleness_days,
+                _max_staleness_days(),
+            )
+            raise HTTPException(status_code=503, detail="Service unavailable.")
 
         # Add asset column + cast to ASSET_DTYPE (Pitfall 3 mitigation)
         last_row["asset"] = sym
