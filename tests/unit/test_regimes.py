@@ -57,6 +57,20 @@ class TestAssignVolTerciles:
         # The last 33 values (67..99) should be 'high'
         assert (labels.iloc[-33:] == "high").all(), "Last third should all be 'high'"
 
+    def test_tied_quantile_boundary_at_minimum_no_raise(self):
+        """Mass at the floored minimum (q33 == min) must not raise (WR-01).
+
+        With 40% of the series tied at 1e-4, q33 equals the series minimum.
+        The old pd.cut implementation padded the left bin edge by 1e-30 — a
+        float no-op at 1e-4 magnitude — producing non-monotonic bins and a
+        ValueError.  Quantile-comparison labelling must handle this.
+        """
+        rv = pd.Series([1e-4] * 40 + list(np.linspace(2e-4, 1e-3, 60)))
+        labels = assign_vol_terciles(rv)
+        assert len(labels) == 100
+        assert (labels.iloc[:40] == "low").all(), "tied minimum values must be 'low'"
+        assert set(labels.unique()) <= {"low", "mid", "high"}
+
     def test_constant_variance_no_raise(self):
         """A constant series must not raise; degenerate buckets are acceptable."""
         rv = pd.Series([0.0005] * 50)

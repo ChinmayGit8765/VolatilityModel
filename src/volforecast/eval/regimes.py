@@ -35,6 +35,7 @@ References
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 
@@ -53,8 +54,13 @@ def assign_vol_terciles(realized_var: pd.Series) -> pd.Series:
     Edge cases:
 
     - **Constant input**: all values equal (e.g. all-zero after a yfinance
-      artifact) — both quantile boundaries equal the constant value, so the
-      ``pd.cut`` bins collapse.  All rows are assigned "mid" without raising.
+      artifact) — both quantile boundaries coincide, so all rows are assigned
+      "mid" without raising.
+    - **Tied quantile boundaries**: heavy mass at a single value (e.g. floored
+      zero-returns) can make q33 equal the series minimum or q67 equal q33.
+      Labels are assigned by direct quantile comparison (``np.where``), which
+      never raises on non-monotonic boundaries — unlike ``pd.cut`` with
+      explicit bins (WR-01).
     - **Single observation**: one-row Series is handled by the same "mid"
       fallback path.
 
@@ -85,23 +91,19 @@ def assign_vol_terciles(realized_var: pd.Series) -> pd.Series:
             dtype=str,
         )
 
-    # Use pd.cut with explicitly defined bins.
-    # Include the minimum value in the "low" bucket by setting the left
-    # boundary slightly below the series minimum.
-    lo = float(realized_var.min())
-    hi = float(realized_var.max())
-
-    bins = [lo - 1e-30, q33, q67, hi + 1e-30]
-    labels = pd.cut(
-        realized_var,
-        bins=bins,
-        labels=["low", "mid", "high"],
-        right=True,
-        include_lowest=True,
+    # WR-01: label by direct quantile comparison.  pd.cut with explicit bins
+    # raises on non-monotonic boundaries when ties collapse a bin edge onto
+    # the series min (mass at floored zero-returns), and a ±1e-30 bin padding
+    # is a float no-op at typical variance magnitudes (~1e-4).  np.where has
+    # no monotonicity requirement: low = (-inf, q33], mid = (q33, q67],
+    # high = (q67, inf) — identical boundary semantics to the previous
+    # right-closed bins.
+    labels = np.where(
+        realized_var <= q33,
+        "low",
+        np.where(realized_var <= q67, "mid", "high"),
     )
-
-    # pd.cut returns a Categorical — convert to str Series for simpler handling
-    return labels.astype(str)
+    return pd.Series(labels, index=realized_var.index, dtype=str)
 
 
 def assign_calendar_year(index: pd.DatetimeIndex) -> pd.Series:
