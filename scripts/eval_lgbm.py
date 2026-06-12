@@ -557,10 +557,12 @@ def main() -> None:
     mv = client.get_model_version_by_alias(MODEL_NAME, CHAMPION_ALIAS)
     log.info("Champion: version=%s run_id=%s", mv.version, mv.run_id)
 
-    # Load as native lightgbm (not pyfunc) to avoid schema-enforcement issues
-    # with categorical columns — the native model accepts ASSET_DTYPE directly
-    model = mlflow.lightgbm.load_model(f"runs:/{mv.run_id}/model")
-    log.info("Champion LGBMRegressor loaded (native).")
+    # WR-05: load via the registry alias URI with the public native-flavor
+    # API — the SAME codepath as serving (no runs:/ URI, no pyfunc internals).
+    # Native lightgbm avoids the pyfunc schema-enforcement layer that cannot
+    # coerce the ASSET_DTYPE categorical column.
+    model = mlflow.lightgbm.load_model(f"models:/{MODEL_NAME}@{CHAMPION_ALIAS}")
+    log.info("Champion LGBMRegressor loaded (native, via @%s alias).", CHAMPION_ALIAS)
 
     # --- Load assets ---
     assets = load_assets(project_root / "config" / "assets.yaml")

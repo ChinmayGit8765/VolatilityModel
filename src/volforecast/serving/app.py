@@ -63,22 +63,25 @@ def _load_champion_model() -> tuple:
     Returns:
         (native_lgb_model, version_str, alias_str, model_columns_list)
 
-        ``native_lgb_model`` is the underlying LGBMRegressor extracted from the
-        pyfunc wrapper.  We bypass the pyfunc schema validation layer (which
-        can't coerce pandas CategoricalDtype -> string) and predict directly on
-        the native model so the asset column can be passed as ASSET_DTYPE
-        (required for LightGBM categorical splits).
+        ``native_lgb_model`` is loaded via ``mlflow.lightgbm.load_model`` on
+        the alias URI — the PUBLIC API for the native flavor (WR-05: never
+        unwrap pyfunc internals like ``_model_impl.lgb_model``, which is
+        private and breaks across MLflow versions).  The native model is
+        needed so the asset column can be passed as ASSET_DTYPE (required for
+        LightGBM categorical splits) without the pyfunc schema-coercion layer.
 
-        ``model_columns_list`` is the full ordered column list from the model's
-        registered signature — used to reindex each inference row to the exact
-        21-column training schema (including NaN-filled optional cross-asset
-        columns for assets that don't have them).
+        ``model_columns_list`` is the full ordered column list from the
+        registered model signature (``mlflow.models.get_model_info``) — used
+        to reindex each inference row to the exact 21-column training schema
+        (including NaN-filled optional cross-asset columns for assets that
+        don't have them).
 
     Raises:
         RuntimeError: if MLFLOW_TRACKING_URI is not set or the model fails to load.
     """
     import mlflow
-    import mlflow.pyfunc
+    import mlflow.lightgbm
+    from mlflow.models import get_model_info
 
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
     if not tracking_uri:
@@ -87,17 +90,13 @@ def _load_champion_model() -> tuple:
     mlflow.set_tracking_uri(tracking_uri)
     model_uri = f"models:/{_MODEL_NAME}@{_MODEL_ALIAS}"
     log.info("Loading champion model from %s", model_uri)
-    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
-
-    # Extract native LGBMRegressor from pyfunc wrapper
-    # (avoids schema-validation layer that rejects CategoricalDtype)
-    native_model = pyfunc_model._model_impl.lgb_model
+    native_model = mlflow.lightgbm.load_model(model_uri)
 
     # Read the full ordered column list from the registered model signature.
     # This is the 21-column training schema (18 base + garch + rv_22_eth +
     # rv_22_btc + asset) that every inference row must match.
-    schema = pyfunc_model.metadata.get_input_schema()
-    model_columns = [c.name for c in schema.inputs]
+    signature = get_model_info(model_uri).signature
+    model_columns = signature.inputs.input_names() if signature is not None else []
     log.info("Model signature columns: %s", model_columns)
 
     client = mlflow.MlflowClient()
