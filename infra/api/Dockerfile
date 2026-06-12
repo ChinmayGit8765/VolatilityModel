@@ -9,14 +9,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install uv (matches local dev + CI toolchain exactly)
+# Install uv (matches local dev + CI toolchain exactly).
+# WR-07: --no-install-project installs only third-party deps in this layer —
+# the volforecast project itself is a hatchling root package that needs src/
+# present, so a plain `uv sync --frozen` here breaks fresh builds.  Splitting
+# also keeps the (slow) dependency layer cached across src/ changes.
 COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir uv && \
-    uv sync --no-dev --frozen
+    uv sync --no-dev --frozen --no-install-project
 
 # Copy source tree and asset config
 COPY src/ ./src/
 COPY config/ ./config/
+
+# Now that src/ exists, install the project itself (cheap — deps are cached).
+RUN uv sync --no-dev --frozen
 
 # Python path so volforecast package is importable
 ENV PYTHONPATH=/app/src
@@ -37,4 +44,6 @@ ENV PREDICTION_LOG_PATH=/data/predictions/predictions.parquet
 
 # Start the ASGI server bound to all interfaces on port 8000.
 # The host-side compose binding (127.0.0.1:8000:8000) enforces loopback isolation.
-CMD ["uv", "run", "uvicorn", "volforecast.serving.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# WR-07: --no-sync prevents uv from re-resolving/re-installing the environment
+# at container start — the env was fully built at image build time.
+CMD ["uv", "run", "--no-sync", "uvicorn", "volforecast.serving.app:app", "--host", "0.0.0.0", "--port", "8000"]
