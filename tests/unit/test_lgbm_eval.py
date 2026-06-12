@@ -196,6 +196,33 @@ class TestPerFoldLeakFreedom:
                     f"legal test windows: {sorted(got - allowed)[:5]}..."
                 )
 
+    def test_floored_zero_rv_rows_excluded(self):
+        """WR-02: floored-zero realized variance must not enter the metrics.
+
+        to_log_var floors zeros at LOG_VAR_EPS, so the round-trip value is
+        ~LOG_VAR_EPS > 0 and a plain `<= 0` check never fires.  Rows whose
+        target round-trips to the floor must be dropped from n_forecasts.
+        """
+        from volforecast.models.lgbm import to_log_var
+
+        rng = np.random.default_rng(11)
+        n = 300  # exactly one fold: test window = positions 273..293 (21 rows)
+        feat = pd.DataFrame(
+            {"f1": rng.standard_normal(n), "orig_pos": np.arange(n, dtype=float)},
+            index=pd.RangeIndex(n),
+        )
+        tgt = pd.Series(to_log_var(rng.uniform(1e-5, 1e-3, size=n)))
+        # Five floored zeros inside the test window
+        tgt.iloc[273:278] = float(to_log_var(0.0))
+        tgt.iloc[-1] = np.nan
+
+        fold_models = {0: _RecordingModel(["f1", "orig_pos", "asset"])}
+        results = evaluate_per_asset(fold_models, {"SPY": feat}, {"SPY": tgt})
+
+        assert results["SPY"]["n_forecasts"] == 21 - 5, (
+            "floored-zero rows were not excluded from evaluation"
+        )
+
     def test_resolve_fold_model_contract(self):
         """Fallback beyond the range; KeyError on holes inside the range."""
         m0, m2 = object(), object()

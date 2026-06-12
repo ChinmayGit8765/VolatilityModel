@@ -754,8 +754,17 @@ def evaluate_per_asset(
             preds_var = from_log_var(preds_log)
             true_var = from_log_var(y_test_log_valid.values)
 
-            all_pred_var.append(preds_var)
-            all_true_var.append(true_var)
+            # WR-02: drop floored near-zero realized variance.  to_log_var
+            # floors zeros at LOG_VAR_EPS, so from_log_var round-trips them to
+            # ~LOG_VAR_EPS > 0 — a plain `<= 0` check never fires, and each
+            # floored zero injects a massive QLIKE outlier (pred/eps ratio).
+            # The (1 + 1e-9) tolerance absorbs exp(log(eps)) float rounding.
+            keep = np.isfinite(true_var) & (true_var > LOG_VAR_EPS * (1 + 1e-9))
+            if not keep.any():
+                continue
+
+            all_pred_var.append(preds_var[keep])
+            all_true_var.append(true_var[keep])
 
         if not all_pred_var:
             log.warning("No test folds for asset %s — skipping evaluation.", symbol)

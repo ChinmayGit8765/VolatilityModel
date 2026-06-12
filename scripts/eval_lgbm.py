@@ -79,6 +79,7 @@ from volforecast.models.garch import GARCH
 from volforecast.models.har_rv import HARRV
 from volforecast.models.lgbm import (
     ASSET_DTYPE,
+    LOG_VAR_EPS,
     PARAM_GRID,
     from_log_var,
     resolve_fold_model,
@@ -198,8 +199,12 @@ def _collect_per_fold_rows(
 
             for i in range(len(test_dates_valid)):
                 rv_val = float(true_var_arr[i])
-                # Drop zero/negative realized variance (QLIKE = +inf for zero)
-                if rv_val <= 0 or not np.isfinite(rv_val):
+                # WR-02: drop floored near-zero realized variance.  to_log_var
+                # floors zeros at LOG_VAR_EPS, so the round-trip value is
+                # ~LOG_VAR_EPS > 0 — a plain `<= 0` check never fires and each
+                # floored zero injects a massive QLIKE outlier.  Same filter
+                # as evaluate_per_asset.
+                if rv_val <= LOG_VAR_EPS * (1 + 1e-9) or not np.isfinite(rv_val):
                     continue
                 rows.append(
                     {
