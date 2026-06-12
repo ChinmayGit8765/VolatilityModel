@@ -159,6 +159,17 @@ def _collect_per_fold_rows(
         log.info("  Running HAR-RV walk-forward for %s...", symbol)
         har_forecasts = har_model.forecast_path(rv_daily)
 
+        # WR-10: baseline paths are computed on the PROCESSED frame's index,
+        # while test_idx positions refer to the FEATURE frame.  If the two
+        # indices ever diverge, positional .iloc selection below would
+        # silently misalign baseline rows against LightGBM rows.  Reindexing
+        # to feat_df.index makes the positional selection correct by
+        # construction (label-aligned, NaN where missing — NaN baselines are
+        # filtered downstream in _compute_metrics_for_group).
+        ewma_forecasts = ewma_forecasts.reindex(feat_df.index)
+        garch_forecasts = garch_forecasts.reindex(feat_df.index)
+        har_forecasts = har_forecasts.reindex(feat_df.index)
+
         # Walk forward: LightGBM predictions on test folds
         log_target = asset_target_series[symbol]
 
