@@ -12,26 +12,26 @@
 
 | Asset | Model | N | RMSE | MAE | QLIKE |
 |-------|-------|---|------|-----|-------|
-| AAPL | LightGBM | 819 | 9.058995e-04 | 2.340072e-04 | 3.940486 |
-| AAPL | EWMA | 819 | 8.919878e-04 | 3.000766e-04 | 1.716667 |
-| AAPL | GARCH | 819 | 9.427651e-04 | 3.480338e-04 | 1.801823 |
-| AAPL | HAR | 819 | 8.934513e-04 | 3.170573e-04 | 1.695968 |
-| BTC-USD | LightGBM | 1,344 | 1.585363e-03 | 5.550684e-04 | 3.891160 |
-| BTC-USD | EWMA | 1,344 | 1.544555e-03 | 7.364814e-04 | 1.950012 |
-| BTC-USD | GARCH | 1,344 | 1.577425e-03 | 9.219698e-04 | 2.003164 |
-| BTC-USD | HAR | 1,344 | 1.533963e-03 | 8.495577e-04 | 1.930656 |
-| ETH-USD | LightGBM | 1,344 | 3.076179e-03 | 1.048366e-03 | 5.269396 |
+| AAPL | LightGBM | 817 | 9.227140e-04 | 2.385883e-04 | 3.625649 |
+| AAPL | EWMA | 817 | 8.930383e-04 | 3.003930e-04 | 1.688206 |
+| AAPL | GARCH | 817 | 9.437992e-04 | 3.481800e-04 | 1.772407 |
+| AAPL | HAR | 817 | 8.944729e-04 | 3.172831e-04 | 1.666804 |
+| BTC-USD | LightGBM | 1,343 | 1.603920e-03 | 5.670106e-04 | 4.754568 |
+| BTC-USD | EWMA | 1,343 | 1.544893e-03 | 7.362908e-04 | 1.940212 |
+| BTC-USD | GARCH | 1,343 | 1.577893e-03 | 9.221255e-04 | 1.993651 |
+| BTC-USD | HAR | 1,343 | 1.534401e-03 | 8.496379e-04 | 1.921059 |
+| ETH-USD | LightGBM | 1,344 | 3.086945e-03 | 1.061461e-03 | 5.475349 |
 | ETH-USD | EWMA | 1,344 | 2.962131e-03 | 1.390028e-03 | 1.934222 |
 | ETH-USD | GARCH | 1,344 | 2.998875e-03 | 1.503271e-03 | 1.960759 |
 | ETH-USD | HAR | 1,344 | 2.978026e-03 | 1.492694e-03 | 1.936323 |
-| MSFT | LightGBM | 819 | 6.717591e-04 | 2.049429e-04 | 3.388211 |
+| MSFT | LightGBM | 819 | 6.743420e-04 | 2.078898e-04 | 3.617540 |
 | MSFT | EWMA | 819 | 6.601060e-04 | 2.635338e-04 | 1.712161 |
 | MSFT | GARCH | 819 | 6.654619e-04 | 2.804379e-04 | 1.745235 |
 | MSFT | HAR | 819 | 6.611853e-04 | 2.968209e-04 | 1.703623 |
-| SPY | LightGBM | 819 | 3.967193e-04 | 7.945659e-05 | 2.574218 |
-| SPY | EWMA | 819 | 3.947091e-04 | 1.063363e-04 | 1.646995 |
-| SPY | GARCH | 819 | 4.379837e-04 | 1.293601e-04 | 1.817583 |
-| SPY | HAR | 819 | 3.921415e-04 | 1.152090e-04 | 1.671067 |
+| SPY | LightGBM | 818 | 4.011778e-04 | 8.253738e-05 | 2.693654 |
+| SPY | EWMA | 818 | 3.949478e-04 | 1.064168e-04 | 1.634448 |
+| SPY | GARCH | 818 | 4.382480e-04 | 1.294589e-04 | 1.805021 |
+| SPY | HAR | 818 | 3.923679e-04 | 1.152374e-04 | 1.657546 |
 
 ## Section 2: Per-Vol-Tercile Breakdown
 
@@ -41,15 +41,15 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Tercile | Model | N | RMSE | MAE | QLIKE |
 |---------|-------|---|------|-----|-------|
-| low | LightGBM | 273 | 4.873943e-05 | 3.727702e-05 | 1.689714 |
-| low | EWMA | 273 | 3.271821e-04 | 2.327258e-04 | 3.151348 |
-| low | GARCH | 273 | 4.003250e-04 | 2.945884e-04 | 3.420562 |
-| low | HAR | 273 | 3.084247e-04 | 2.600811e-04 | 3.363214 |
-| mid | LightGBM | 273 | 4.390977e-05 | 3.387913e-05 | 0.409721 |
-| mid | EWMA | 273 | 2.392396e-04 | 1.612626e-04 | 0.589976 |
-| mid | GARCH | 273 | 3.477391e-04 | 2.313739e-04 | 0.779649 |
-| mid | HAR | 273 | 2.482911e-04 | 2.061748e-04 | 0.755123 |
-| high | LightGBM | 273 | 1.567692e-03 | 6.308656e-04 | 9.722023 |
+| low | LightGBM | 272 | 6.537195e-05 | 5.296502e-05 | 1.876991 |
+| low | EWMA | 272 | 3.276724e-04 | 2.330566e-04 | 3.069697 |
+| low | GARCH | 272 | 4.005360e-04 | 2.945209e-04 | 3.337251 |
+| low | HAR | 272 | 3.087857e-04 | 2.603557e-04 | 3.281238 |
+| mid | LightGBM | 272 | 4.565614e-05 | 3.522621e-05 | 0.313646 |
+| mid | EWMA | 272 | 2.393753e-04 | 1.611241e-04 | 0.587271 |
+| mid | GARCH | 272 | 3.480106e-04 | 2.312551e-04 | 0.776795 |
+| mid | HAR | 272 | 2.482304e-04 | 2.059612e-04 | 0.752172 |
+| high | LightGBM | 273 | 1.594249e-03 | 6.261488e-04 | 8.667771 |
 | high | EWMA | 273 | 1.490853e-03 | 5.062414e-04 | 1.408678 |
 | high | GARCH | 273 | 1.544421e-03 | 5.181392e-04 | 1.205259 |
 | high | HAR | 273 | 1.495992e-03 | 4.849160e-04 | 0.969566 |
@@ -58,15 +58,15 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Tercile | Model | N | RMSE | MAE | QLIKE |
 |---------|-------|---|------|-----|-------|
-| low | LightGBM | 448 | 9.373166e-05 | 6.936201e-05 | 1.814343 |
-| low | EWMA | 448 | 6.157140e-04 | 5.269085e-04 | 3.644651 |
-| low | GARCH | 448 | 9.404096e-04 | 9.132350e-04 | 4.283856 |
-| low | HAR | 448 | 7.977940e-04 | 7.612427e-04 | 4.096227 |
-| mid | LightGBM | 448 | 1.292635e-04 | 1.015096e-04 | 0.703551 |
-| mid | EWMA | 448 | 6.198160e-04 | 4.775840e-04 | 0.716520 |
-| mid | GARCH | 448 | 7.693037e-04 | 7.333412e-04 | 1.045361 |
-| mid | HAR | 448 | 7.385304e-04 | 6.570485e-04 | 0.953410 |
-| high | LightGBM | 448 | 2.741284e-03 | 1.494334e-03 | 9.155585 |
+| low | LightGBM | 448 | 1.083566e-04 | 8.423726e-05 | 1.943997 |
+| low | EWMA | 448 | 6.162903e-04 | 5.272412e-04 | 3.616072 |
+| low | GARCH | 448 | 9.406209e-04 | 9.134929e-04 | 4.255363 |
+| low | HAR | 448 | 7.979026e-04 | 7.613557e-04 | 4.067556 |
+| mid | LightGBM | 447 | 1.184095e-04 | 9.386248e-05 | 0.811244 |
+| mid | EWMA | 447 | 6.181555e-04 | 4.760987e-04 | 0.712961 |
+| mid | GARCH | 447 | 7.691666e-04 | 7.331287e-04 | 1.043193 |
+| mid | HAR | 447 | 7.384054e-04 | 6.567456e-04 | 0.951125 |
+| high | LightGBM | 448 | 2.772400e-03 | 1.521876e-03 | 11.499663 |
 | high | EWMA | 448 | 2.528572e-03 | 1.204952e-03 | 1.488865 |
 | high | GARCH | 448 | 2.447165e-03 | 1.119333e-03 | 0.680276 |
 | high | HAR | 448 | 2.424299e-03 | 1.130382e-03 | 0.742332 |
@@ -75,15 +75,15 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Tercile | Model | N | RMSE | MAE | QLIKE |
 |---------|-------|---|------|-----|-------|
-| low | LightGBM | 448 | 1.615028e-04 | 1.189642e-04 | 1.669138 |
+| low | LightGBM | 448 | 1.765402e-04 | 1.376713e-04 | 1.831387 |
 | low | EWMA | 448 | 1.218633e-03 | 1.006707e-03 | 3.516662 |
 | low | GARCH | 448 | 1.362787e-03 | 1.266297e-03 | 3.847610 |
 | low | HAR | 448 | 1.267754e-03 | 1.184559e-03 | 3.806830 |
-| mid | LightGBM | 448 | 2.068274e-04 | 1.596796e-04 | 0.846619 |
+| mid | LightGBM | 448 | 2.113301e-04 | 1.629924e-04 | 0.716303 |
 | mid | EWMA | 448 | 1.115302e-03 | 8.710306e-04 | 0.745796 |
 | mid | GARCH | 448 | 1.172336e-03 | 1.038485e-03 | 0.892102 |
 | mid | HAR | 448 | 1.239467e-03 | 1.060614e-03 | 0.901914 |
-| high | LightGBM | 448 | 5.321633e-03 | 2.866453e-03 | 13.292430 |
+| high | LightGBM | 448 | 5.339650e-03 | 2.883720e-03 | 13.878358 |
 | high | EWMA | 448 | 4.857334e-03 | 2.292345e-03 | 1.540209 |
 | high | GARCH | 448 | 4.873212e-03 | 2.205032e-03 | 1.142564 |
 | high | HAR | 448 | 4.843804e-03 | 2.232910e-03 | 1.100224 |
@@ -92,15 +92,15 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Tercile | Model | N | RMSE | MAE | QLIKE |
 |---------|-------|---|------|-----|-------|
-| low | LightGBM | 273 | 3.695090e-05 | 3.120157e-05 | 1.653510 |
+| low | LightGBM | 273 | 5.211964e-05 | 4.391057e-05 | 1.881406 |
 | low | EWMA | 273 | 2.528639e-04 | 2.106993e-04 | 3.176142 |
 | low | GARCH | 273 | 2.770613e-04 | 2.446680e-04 | 3.352456 |
 | low | HAR | 273 | 2.995861e-04 | 2.790873e-04 | 3.524862 |
-| mid | LightGBM | 273 | 5.058358e-05 | 3.687965e-05 | 0.431470 |
+| mid | LightGBM | 273 | 5.089010e-05 | 3.791453e-05 | 0.364871 |
 | mid | EWMA | 273 | 2.145359e-04 | 1.614938e-04 | 0.555821 |
 | mid | GARCH | 273 | 2.226554e-04 | 1.803026e-04 | 0.626764 |
 | mid | HAR | 273 | 2.485565e-04 | 2.219241e-04 | 0.753115 |
-| high | LightGBM | 273 | 1.161833e-03 | 5.467474e-04 | 8.079653 |
+| high | LightGBM | 273 | 1.165721e-03 | 5.418442e-04 | 8.606345 |
 | high | EWMA | 273 | 1.094191e-03 | 4.184082e-04 | 1.404522 |
 | high | GARCH | 273 | 1.096440e-03 | 4.163431e-04 | 1.256486 |
 | high | HAR | 273 | 1.077017e-03 | 3.894512e-04 | 0.832892 |
@@ -109,15 +109,15 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Tercile | Model | N | RMSE | MAE | QLIKE |
 |---------|-------|---|------|-----|-------|
-| low | LightGBM | 273 | 1.826745e-05 | 1.398771e-05 | 1.861642 |
-| low | EWMA | 273 | 1.324011e-04 | 8.199278e-05 | 3.281578 |
-| low | GARCH | 273 | 2.088223e-04 | 1.075343e-04 | 3.481391 |
-| low | HAR | 273 | 1.334121e-04 | 1.041289e-04 | 3.617753 |
-| mid | LightGBM | 273 | 1.592914e-05 | 1.236998e-05 | 0.319643 |
-| mid | EWMA | 273 | 1.087769e-04 | 5.896023e-05 | 0.499915 |
-| mid | GARCH | 273 | 2.090093e-04 | 8.778505e-05 | 0.635017 |
-| mid | HAR | 273 | 1.180357e-04 | 8.152247e-05 | 0.708427 |
-| high | LightGBM | 273 | 6.867103e-04 | 2.120121e-04 | 5.541368 |
+| low | LightGBM | 273 | 3.146719e-05 | 2.353757e-05 | 2.171787 |
+| low | EWMA | 273 | 1.323968e-04 | 8.197812e-05 | 3.241107 |
+| low | GARCH | 273 | 2.088225e-04 | 1.075352e-04 | 3.440994 |
+| low | HAR | 273 | 1.333486e-04 | 1.040189e-04 | 3.575673 |
+| mid | LightGBM | 272 | 2.197305e-05 | 1.581860e-05 | 0.305000 |
+| mid | EWMA | 272 | 1.089542e-04 | 5.904292e-05 | 0.498583 |
+| mid | GARCH | 272 | 2.093723e-04 | 8.792828e-05 | 0.633435 |
+| mid | HAR | 272 | 1.181929e-04 | 8.159452e-05 | 0.706458 |
+| high | LightGBM | 273 | 6.933759e-04 | 2.080116e-04 | 5.595426 |
 | high | EWMA | 273 | 6.618334e-04 | 1.780559e-04 | 1.159493 |
 | high | GARCH | 273 | 6.987113e-04 | 1.927610e-04 | 1.336340 |
 | high | HAR | 273 | 6.554339e-04 | 1.599755e-04 | 0.687022 |
@@ -128,19 +128,19 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Year | Model | N | RMSE | MAE | QLIKE |
 |------|-------|---|------|-----|-------|
-| 2023 | LightGBM | 228 | 3.104203e-04 | 1.325859e-04 | 3.297198 |
-| 2023 | EWMA | 228 | 2.975769e-04 | 1.666422e-04 | 1.505790 |
-| 2023 | GARCH | 228 | 3.324104e-04 | 2.449493e-04 | 1.568473 |
-| 2023 | HAR | 228 | 3.166166e-04 | 2.243273e-04 | 1.531588 |
-| 2024 | LightGBM | 252 | 4.876518e-04 | 1.811926e-04 | 3.816075 |
-| 2024 | EWMA | 252 | 4.694763e-04 | 2.228935e-04 | 1.615033 |
-| 2024 | GARCH | 252 | 4.688913e-04 | 2.364922e-04 | 1.595261 |
-| 2024 | HAR | 252 | 4.701981e-04 | 2.396115e-04 | 1.604972 |
-| 2025 | LightGBM | 250 | 1.512631e-03 | 3.808276e-04 | 4.641921 |
+| 2023 | LightGBM | 227 | 3.028100e-04 | 1.345735e-04 | 2.246399 |
+| 2023 | EWMA | 227 | 2.979584e-04 | 1.665292e-04 | 1.453087 |
+| 2023 | GARCH | 227 | 3.321752e-04 | 2.443453e-04 | 1.513022 |
+| 2023 | HAR | 227 | 3.168244e-04 | 2.241470e-04 | 1.477582 |
+| 2024 | LightGBM | 251 | 4.869022e-04 | 1.854937e-04 | 3.478504 |
+| 2024 | EWMA | 251 | 4.703161e-04 | 2.231864e-04 | 1.568811 |
+| 2024 | GARCH | 251 | 4.696639e-04 | 2.366592e-04 | 1.547907 |
+| 2024 | HAR | 251 | 4.709900e-04 | 2.398314e-04 | 1.557871 |
+| 2025 | LightGBM | 250 | 1.545317e-03 | 3.896698e-04 | 4.836713 |
 | 2025 | EWMA | 250 | 1.496512e-03 | 5.100145e-04 | 1.946940 |
 | 2025 | GARCH | 250 | 1.590013e-03 | 5.810956e-04 | 2.254153 |
 | 2025 | HAR | 250 | 1.495218e-03 | 4.869874e-04 | 1.904513 |
-| 2026 | LightGBM | 89 | 4.522752e-04 | 2.309540e-04 | 3.970406 |
+| 2026 | LightGBM | 89 | 4.531190e-04 | 2.292369e-04 | 4.156623 |
 | 2026 | EWMA | 89 | 4.241464e-04 | 2.707361e-04 | 1.897833 |
 | 2026 | GARCH | 89 | 4.146053e-04 | 2.732734e-04 | 1.713902 |
 | 2026 | HAR | 89 | 4.277235e-04 | 2.965659e-04 | 1.788924 |
@@ -149,23 +149,23 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Year | Model | N | RMSE | MAE | QLIKE |
 |------|-------|---|------|-----|-------|
-| 2022 | LightGBM | 92 | 2.839255e-03 | 7.036973e-04 | 4.066104 |
+| 2022 | LightGBM | 92 | 2.871548e-03 | 7.240924e-04 | 3.583856 |
 | 2022 | EWMA | 92 | 2.832444e-03 | 1.129760e-03 | 2.493106 |
 | 2022 | GARCH | 92 | 2.872697e-03 | 1.417145e-03 | 2.634908 |
 | 2022 | HAR | 92 | 2.854717e-03 | 1.399194e-03 | 2.552021 |
-| 2023 | LightGBM | 365 | 1.257389e-03 | 4.810795e-04 | 4.650540 |
+| 2023 | LightGBM | 365 | 1.270058e-03 | 4.964050e-04 | 5.461254 |
 | 2023 | EWMA | 365 | 1.217301e-03 | 6.469038e-04 | 2.250500 |
 | 2023 | GARCH | 365 | 1.338881e-03 | 1.041380e-03 | 2.342917 |
 | 2023 | HAR | 365 | 1.248978e-03 | 8.752411e-04 | 2.227802 |
-| 2024 | LightGBM | 366 | 1.557854e-03 | 6.699307e-04 | 3.263364 |
-| 2024 | EWMA | 366 | 1.497515e-03 | 8.715212e-04 | 1.761609 |
-| 2024 | GARCH | 366 | 1.488937e-03 | 9.134366e-04 | 1.734962 |
-| 2024 | HAR | 366 | 1.481065e-03 | 8.949680e-04 | 1.707409 |
-| 2025 | LightGBM | 365 | 1.023898e-03 | 4.299189e-04 | 3.586478 |
+| 2024 | LightGBM | 365 | 1.601469e-03 | 6.928779e-04 | 5.280344 |
+| 2024 | EWMA | 365 | 1.498665e-03 | 8.711899e-04 | 1.725037 |
+| 2024 | GARCH | 365 | 1.490509e-03 | 9.139863e-04 | 1.699223 |
+| 2024 | HAR | 365 | 1.482584e-03 | 8.953876e-04 | 1.671485 |
+| 2025 | LightGBM | 365 | 1.028390e-03 | 4.313662e-04 | 3.767044 |
 | 2025 | EWMA | 365 | 9.730802e-04 | 5.333714e-04 | 1.742351 |
 | 2025 | GARCH | 365 | 1.024183e-03 | 7.106280e-04 | 1.872311 |
 | 2025 | HAR | 365 | 9.775266e-04 | 6.385889e-04 | 1.787145 |
-| 2026 | LightGBM | 156 | 2.248014e-03 | 6.638638e-04 | 4.197012 |
+| 2026 | LightGBM | 156 | 2.243845e-03 | 6.624476e-04 | 4.871902 |
 | 2026 | EWMA | 156 | 2.208624e-03 | 8.725372e-04 | 1.854555 |
 | 2026 | GARCH | 156 | 2.172750e-03 | 8.650600e-04 | 1.771072 |
 | 2026 | HAR | 156 | 2.105768e-03 | 8.523937e-04 | 1.728519 |
@@ -174,23 +174,23 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Year | Model | N | RMSE | MAE | QLIKE |
 |------|-------|---|------|-----|-------|
-| 2022 | LightGBM | 92 | 5.548113e-03 | 1.602945e-03 | 6.050580 |
+| 2022 | LightGBM | 92 | 5.557476e-03 | 1.620487e-03 | 4.643184 |
 | 2022 | EWMA | 92 | 5.386806e-03 | 2.444649e-03 | 2.256435 |
 | 2022 | GARCH | 92 | 5.505702e-03 | 2.764710e-03 | 2.409922 |
 | 2022 | HAR | 92 | 5.543161e-03 | 2.621385e-03 | 2.466167 |
-| 2023 | LightGBM | 365 | 1.305157e-03 | 5.350489e-04 | 4.445078 |
+| 2023 | LightGBM | 365 | 1.304068e-03 | 5.475907e-04 | 4.191797 |
 | 2023 | EWMA | 365 | 1.247291e-03 | 7.027633e-04 | 1.979727 |
 | 2023 | GARCH | 365 | 1.449271e-03 | 1.103165e-03 | 2.086982 |
 | 2023 | HAR | 365 | 1.422185e-03 | 1.095124e-03 | 2.070593 |
-| 2024 | LightGBM | 366 | 2.681723e-03 | 1.006182e-03 | 3.968234 |
+| 2024 | LightGBM | 366 | 2.725549e-03 | 1.036278e-03 | 5.592499 |
 | 2024 | EWMA | 366 | 2.617667e-03 | 1.315811e-03 | 1.776113 |
 | 2024 | GARCH | 366 | 2.590690e-03 | 1.286119e-03 | 1.724532 |
 | 2024 | HAR | 366 | 2.604969e-03 | 1.343254e-03 | 1.704258 |
-| 2025 | LightGBM | 365 | 3.733548e-03 | 1.407686e-03 | 6.901156 |
+| 2025 | LightGBM | 365 | 3.736577e-03 | 1.410493e-03 | 6.892878 |
 | 2025 | EWMA | 365 | 3.565294e-03 | 1.848214e-03 | 1.937774 |
 | 2025 | GARCH | 365 | 3.574161e-03 | 1.813687e-03 | 1.945992 |
 | 2025 | HAR | 365 | 3.530638e-03 | 1.745003e-03 | 1.913387 |
-| 2026 | LightGBM | 156 | 3.146467e-03 | 1.180588e-03 | 5.972216 |
+| 2026 | LightGBM | 156 | 3.131818e-03 | 1.176543e-03 | 5.377793 |
 | 2026 | EWMA | 156 | 3.003791e-03 | 1.478180e-03 | 2.000371 |
 | 2026 | GARCH | 156 | 3.008860e-03 | 1.478669e-03 | 1.989312 |
 | 2026 | HAR | 156 | 2.909809e-03 | 1.517542e-03 | 1.907816 |
@@ -199,19 +199,19 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Year | Model | N | RMSE | MAE | QLIKE |
 |------|-------|---|------|-----|-------|
-| 2023 | LightGBM | 228 | 4.647262e-04 | 1.995714e-04 | 3.444135 |
+| 2023 | LightGBM | 228 | 4.563200e-04 | 2.007671e-04 | 2.682624 |
 | 2023 | EWMA | 228 | 4.405179e-04 | 2.462834e-04 | 1.438752 |
 | 2023 | GARCH | 228 | 4.559760e-04 | 3.043721e-04 | 1.477178 |
 | 2023 | HAR | 228 | 4.638609e-04 | 3.241141e-04 | 1.526862 |
-| 2024 | LightGBM | 252 | 3.452164e-04 | 1.389887e-04 | 2.773947 |
+| 2024 | LightGBM | 252 | 3.467697e-04 | 1.419443e-04 | 3.442080 |
 | 2024 | EWMA | 252 | 3.346757e-04 | 1.759545e-04 | 1.611524 |
 | 2024 | GARCH | 252 | 3.300717e-04 | 1.717957e-04 | 1.524116 |
 | 2024 | HAR | 252 | 3.404902e-04 | 2.120229e-04 | 1.574098 |
-| 2025 | LightGBM | 250 | 7.645159e-04 | 2.085068e-04 | 3.516291 |
+| 2025 | LightGBM | 250 | 7.734452e-04 | 2.134699e-04 | 4.030418 |
 | 2025 | EWMA | 250 | 7.593287e-04 | 2.881562e-04 | 1.948375 |
 | 2025 | GARCH | 250 | 7.606112e-04 | 2.964820e-04 | 2.007075 |
 | 2025 | HAR | 250 | 7.541803e-04 | 2.996545e-04 | 1.925268 |
-| 2026 | LightGBM | 89 | 1.272827e-03 | 3.954391e-04 | 4.624434 |
+| 2026 | LightGBM | 89 | 1.276832e-03 | 3.971840e-04 | 5.349646 |
 | 2026 | EWMA | 89 | 1.255349e-03 | 4.865390e-04 | 2.034013 |
 | 2026 | GARCH | 89 | 1.268433e-03 | 4.816714e-04 | 2.322531 |
 | 2026 | HAR | 89 | 1.243268e-03 | 4.590437e-04 | 1.900598 |
@@ -220,19 +220,19 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 | Year | Model | N | RMSE | MAE | QLIKE |
 |------|-------|---|------|-----|-------|
-| 2023 | LightGBM | 228 | 9.332907e-05 | 5.424137e-05 | 2.427014 |
-| 2023 | EWMA | 228 | 8.631439e-05 | 6.638459e-05 | 1.427000 |
-| 2023 | GARCH | 228 | 1.012508e-04 | 8.137521e-05 | 1.508206 |
-| 2023 | HAR | 228 | 1.058521e-04 | 9.256054e-05 | 1.573668 |
-| 2024 | LightGBM | 252 | 1.239577e-04 | 5.450607e-05 | 2.609133 |
+| 2023 | LightGBM | 227 | 8.740421e-05 | 5.887218e-05 | 1.708753 |
+| 2023 | EWMA | 227 | 8.646259e-05 | 6.649875e-05 | 1.380815 |
+| 2023 | GARCH | 227 | 1.014223e-04 | 8.151970e-05 | 1.461574 |
+| 2023 | HAR | 227 | 1.059092e-04 | 9.256310e-05 | 1.524513 |
+| 2024 | LightGBM | 252 | 1.252729e-04 | 5.633265e-05 | 2.886385 |
 | 2024 | EWMA | 252 | 1.192758e-04 | 6.883756e-05 | 1.678730 |
 | 2024 | GARCH | 252 | 1.236101e-04 | 7.494588e-05 | 1.872436 |
 | 2024 | HAR | 252 | 1.205368e-04 | 7.645797e-05 | 1.664795 |
-| 2025 | LightGBM | 250 | 6.966849e-04 | 1.320080e-04 | 2.733749 |
+| 2025 | LightGBM | 250 | 7.049208e-04 | 1.357264e-04 | 3.326369 |
 | 2025 | EWMA | 250 | 6.949521e-04 | 1.899258e-04 | 1.842704 |
 | 2025 | GARCH | 250 | 7.727511e-04 | 2.418299e-04 | 2.139905 |
 | 2025 | HAR | 250 | 6.874049e-04 | 1.831909e-04 | 1.818214 |
-| 2026 | LightGBM | 89 | 1.381561e-04 | 6.708287e-05 | 2.404342 |
+| 2026 | LightGBM | 89 | 1.396088e-04 | 6.768734e-05 | 2.882706 |
 | 2026 | EWMA | 89 | 1.329431e-04 | 8.005881e-05 | 1.570983 |
 | 2026 | GARCH | 89 | 1.355237e-04 | 9.043321e-05 | 1.549430 |
 | 2026 | HAR | 89 | 1.338407e-04 | 9.199117e-05 | 1.525012 |
@@ -241,39 +241,39 @@ _Tercile labels (low/mid/high) are computed on each asset's TEST-FOLD realized v
 
 This section explicitly names every asset and regime where LightGBM's QLIKE is **worse** (higher) than the best classical baseline.  These results are reported plainly: the project's credibility rests on honest benchmarking, not on hiding unfavourable outcomes.
 
-- **AAPL (overall):** LightGBM QLIKE = 3.940486 vs HAR QLIKE = 1.695968 (LightGBM worse by 2.244518)
-- **BTC-USD (overall):** LightGBM QLIKE = 3.891160 vs HAR QLIKE = 1.930656 (LightGBM worse by 1.960503)
-- **ETH-USD (overall):** LightGBM QLIKE = 5.269396 vs EWMA QLIKE = 1.934222 (LightGBM worse by 3.335174)
-- **MSFT (overall):** LightGBM QLIKE = 3.388211 vs HAR QLIKE = 1.703623 (LightGBM worse by 1.684588)
-- **SPY (overall):** LightGBM QLIKE = 2.574218 vs EWMA QLIKE = 1.646995 (LightGBM worse by 0.927222)
-- **AAPL / vol-high regime:** LightGBM QLIKE = 9.722023 vs HAR QLIKE = 0.969566 (LightGBM worse by 8.752457)
-- **BTC-USD / vol-high regime:** LightGBM QLIKE = 9.155585 vs GARCH QLIKE = 0.680276 (LightGBM worse by 8.475309)
-- **ETH-USD / vol-mid regime:** LightGBM QLIKE = 0.846619 vs EWMA QLIKE = 0.745796 (LightGBM worse by 0.100824)
-- **ETH-USD / vol-high regime:** LightGBM QLIKE = 13.292430 vs HAR QLIKE = 1.100224 (LightGBM worse by 12.192206)
-- **MSFT / vol-high regime:** LightGBM QLIKE = 8.079653 vs HAR QLIKE = 0.832892 (LightGBM worse by 7.246760)
-- **SPY / vol-high regime:** LightGBM QLIKE = 5.541368 vs HAR QLIKE = 0.687022 (LightGBM worse by 4.854346)
-- **AAPL / 2023:** LightGBM QLIKE = 3.297198 vs EWMA QLIKE = 1.505790 (LightGBM worse by 1.791408)
-- **AAPL / 2024:** LightGBM QLIKE = 3.816075 vs GARCH QLIKE = 1.595261 (LightGBM worse by 2.220813)
-- **AAPL / 2025:** LightGBM QLIKE = 4.641921 vs HAR QLIKE = 1.904513 (LightGBM worse by 2.737408)
-- **AAPL / 2026:** LightGBM QLIKE = 3.970406 vs GARCH QLIKE = 1.713902 (LightGBM worse by 2.256504)
-- **BTC-USD / 2022:** LightGBM QLIKE = 4.066104 vs EWMA QLIKE = 2.493106 (LightGBM worse by 1.572998)
-- **BTC-USD / 2023:** LightGBM QLIKE = 4.650540 vs HAR QLIKE = 2.227802 (LightGBM worse by 2.422738)
-- **BTC-USD / 2024:** LightGBM QLIKE = 3.263364 vs HAR QLIKE = 1.707409 (LightGBM worse by 1.555955)
-- **BTC-USD / 2025:** LightGBM QLIKE = 3.586478 vs EWMA QLIKE = 1.742351 (LightGBM worse by 1.844128)
-- **BTC-USD / 2026:** LightGBM QLIKE = 4.197012 vs HAR QLIKE = 1.728519 (LightGBM worse by 2.468493)
-- **ETH-USD / 2022:** LightGBM QLIKE = 6.050580 vs EWMA QLIKE = 2.256435 (LightGBM worse by 3.794145)
-- **ETH-USD / 2023:** LightGBM QLIKE = 4.445078 vs EWMA QLIKE = 1.979727 (LightGBM worse by 2.465351)
-- **ETH-USD / 2024:** LightGBM QLIKE = 3.968234 vs HAR QLIKE = 1.704258 (LightGBM worse by 2.263976)
-- **ETH-USD / 2025:** LightGBM QLIKE = 6.901156 vs HAR QLIKE = 1.913387 (LightGBM worse by 4.987769)
-- **ETH-USD / 2026:** LightGBM QLIKE = 5.972216 vs HAR QLIKE = 1.907816 (LightGBM worse by 4.064400)
-- **MSFT / 2023:** LightGBM QLIKE = 3.444135 vs EWMA QLIKE = 1.438752 (LightGBM worse by 2.005383)
-- **MSFT / 2024:** LightGBM QLIKE = 2.773947 vs GARCH QLIKE = 1.524116 (LightGBM worse by 1.249831)
-- **MSFT / 2025:** LightGBM QLIKE = 3.516291 vs HAR QLIKE = 1.925268 (LightGBM worse by 1.591024)
-- **MSFT / 2026:** LightGBM QLIKE = 4.624434 vs HAR QLIKE = 1.900598 (LightGBM worse by 2.723836)
-- **SPY / 2023:** LightGBM QLIKE = 2.427014 vs EWMA QLIKE = 1.427000 (LightGBM worse by 1.000014)
-- **SPY / 2024:** LightGBM QLIKE = 2.609133 vs HAR QLIKE = 1.664795 (LightGBM worse by 0.944338)
-- **SPY / 2025:** LightGBM QLIKE = 2.733749 vs HAR QLIKE = 1.818214 (LightGBM worse by 0.915535)
-- **SPY / 2026:** LightGBM QLIKE = 2.404342 vs HAR QLIKE = 1.525012 (LightGBM worse by 0.879330)
+- **AAPL (overall):** LightGBM QLIKE = 3.625649 vs HAR QLIKE = 1.666804 (LightGBM worse by 1.958844)
+- **BTC-USD (overall):** LightGBM QLIKE = 4.754568 vs HAR QLIKE = 1.921059 (LightGBM worse by 2.833509)
+- **ETH-USD (overall):** LightGBM QLIKE = 5.475349 vs EWMA QLIKE = 1.934222 (LightGBM worse by 3.541127)
+- **MSFT (overall):** LightGBM QLIKE = 3.617540 vs HAR QLIKE = 1.703623 (LightGBM worse by 1.913917)
+- **SPY (overall):** LightGBM QLIKE = 2.693654 vs EWMA QLIKE = 1.634448 (LightGBM worse by 1.059206)
+- **AAPL / vol-high regime:** LightGBM QLIKE = 8.667771 vs HAR QLIKE = 0.969566 (LightGBM worse by 7.698205)
+- **BTC-USD / vol-mid regime:** LightGBM QLIKE = 0.811244 vs EWMA QLIKE = 0.712961 (LightGBM worse by 0.098283)
+- **BTC-USD / vol-high regime:** LightGBM QLIKE = 11.499663 vs GARCH QLIKE = 0.680276 (LightGBM worse by 10.819386)
+- **ETH-USD / vol-high regime:** LightGBM QLIKE = 13.878358 vs HAR QLIKE = 1.100224 (LightGBM worse by 12.778134)
+- **MSFT / vol-high regime:** LightGBM QLIKE = 8.606345 vs HAR QLIKE = 0.832892 (LightGBM worse by 7.773452)
+- **SPY / vol-high regime:** LightGBM QLIKE = 5.595426 vs HAR QLIKE = 0.687022 (LightGBM worse by 4.908404)
+- **AAPL / 2023:** LightGBM QLIKE = 2.246399 vs EWMA QLIKE = 1.453087 (LightGBM worse by 0.793312)
+- **AAPL / 2024:** LightGBM QLIKE = 3.478504 vs GARCH QLIKE = 1.547907 (LightGBM worse by 1.930597)
+- **AAPL / 2025:** LightGBM QLIKE = 4.836713 vs HAR QLIKE = 1.904513 (LightGBM worse by 2.932200)
+- **AAPL / 2026:** LightGBM QLIKE = 4.156623 vs GARCH QLIKE = 1.713902 (LightGBM worse by 2.442721)
+- **BTC-USD / 2022:** LightGBM QLIKE = 3.583856 vs EWMA QLIKE = 2.493106 (LightGBM worse by 1.090750)
+- **BTC-USD / 2023:** LightGBM QLIKE = 5.461254 vs HAR QLIKE = 2.227802 (LightGBM worse by 3.233452)
+- **BTC-USD / 2024:** LightGBM QLIKE = 5.280344 vs HAR QLIKE = 1.671485 (LightGBM worse by 3.608859)
+- **BTC-USD / 2025:** LightGBM QLIKE = 3.767044 vs EWMA QLIKE = 1.742351 (LightGBM worse by 2.024693)
+- **BTC-USD / 2026:** LightGBM QLIKE = 4.871902 vs HAR QLIKE = 1.728519 (LightGBM worse by 3.143383)
+- **ETH-USD / 2022:** LightGBM QLIKE = 4.643184 vs EWMA QLIKE = 2.256435 (LightGBM worse by 2.386749)
+- **ETH-USD / 2023:** LightGBM QLIKE = 4.191797 vs EWMA QLIKE = 1.979727 (LightGBM worse by 2.212071)
+- **ETH-USD / 2024:** LightGBM QLIKE = 5.592499 vs HAR QLIKE = 1.704258 (LightGBM worse by 3.888241)
+- **ETH-USD / 2025:** LightGBM QLIKE = 6.892878 vs HAR QLIKE = 1.913387 (LightGBM worse by 4.979490)
+- **ETH-USD / 2026:** LightGBM QLIKE = 5.377793 vs HAR QLIKE = 1.907816 (LightGBM worse by 3.469977)
+- **MSFT / 2023:** LightGBM QLIKE = 2.682624 vs EWMA QLIKE = 1.438752 (LightGBM worse by 1.243873)
+- **MSFT / 2024:** LightGBM QLIKE = 3.442080 vs GARCH QLIKE = 1.524116 (LightGBM worse by 1.917965)
+- **MSFT / 2025:** LightGBM QLIKE = 4.030418 vs HAR QLIKE = 1.925268 (LightGBM worse by 2.105151)
+- **MSFT / 2026:** LightGBM QLIKE = 5.349646 vs HAR QLIKE = 1.900598 (LightGBM worse by 3.449048)
+- **SPY / 2023:** LightGBM QLIKE = 1.708753 vs EWMA QLIKE = 1.380815 (LightGBM worse by 0.327938)
+- **SPY / 2024:** LightGBM QLIKE = 2.886385 vs HAR QLIKE = 1.664795 (LightGBM worse by 1.221590)
+- **SPY / 2025:** LightGBM QLIKE = 3.326369 vs HAR QLIKE = 1.818214 (LightGBM worse by 1.508155)
+- **SPY / 2026:** LightGBM QLIKE = 2.882706 vs HAR QLIKE = 1.525012 (LightGBM worse by 1.357693)
 
 ---
 
