@@ -17,7 +17,7 @@ The system closes its feedback loop: auto-arriving realized vol labels logged fo
 ### Feedback Loop & Labels (MON-01)
 - Labeller job joins arrived realized vol (computed from ingested processed OHLCV via the canonical target module) against the prediction log → append-only `data/monitoring/forecast_vs_realized.parquet`
 - A forecast made as-of t is labelable once t+1 close exists in processed data; per-asset-class calendars respected (equity weekends/holidays simply have no labelable rows)
-- Labeller is idempotent: re-running never duplicates rows (keyed on asset + as_of date + model_version)
+- Labeller is idempotent: re-running never duplicates rows (keyed on asset + as_of date + model_alias — alias (champion vs garch_baseline) is the correct discriminator so baseline and champion rows coexist per (asset, date))
 
 ### Drift & Alerts (MON-02..04)
 - Distribution drift: Evidently 0.7+ Report (current API: Report/Dataset/DataDefinition — NOT legacy ColumnMapping) on feature and prediction distributions vs a frozen training reference snapshot; output JSON + HTML to data/monitoring/; dashboard/log only — NEVER triggers promotion
