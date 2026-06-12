@@ -17,9 +17,12 @@ Requirements:
 
 Design:
   - The champion model is loaded as a native LGBMRegressor via mlflow.lightgbm.load_model
-    (using the run ID from the alias) so that the existing evaluate_per_asset() harness
-    can call model.predict() with the ASSET_DTYPE categorical column without the
-    pyfunc schema-enforcement issues.
+    for registry/lineage validation; its logged hyperparameters are then used to
+    deterministically retrain ONE pooled model PER outer walk-forward fold (CR-01).
+    Each fold's test window is scored only by that fold's own model — the registry
+    stores only the final-fold champion, so the leak-free comparison retrains the
+    earlier folds locally (random_state=42 makes the final-fold retrain reproduce
+    the champion's training procedure exactly).
   - Baseline forecasts (EWMA, GARCH, HAR-RV) are recomputed on the SAME walk-forward
     test indices as LightGBM using the existing models/{ewma,garch,har_rv}.py — no new
     metric implementations.
@@ -74,7 +77,14 @@ from volforecast.features.target import HORIZON, compute_target
 from volforecast.models.ewma import EWMA
 from volforecast.models.garch import GARCH
 from volforecast.models.har_rv import HARRV
-from volforecast.models.lgbm import ASSET_DTYPE, from_log_var, to_log_var
+from volforecast.models.lgbm import (
+    ASSET_DTYPE,
+    PARAM_GRID,
+    from_log_var,
+    resolve_fold_model,
+    to_log_var,
+    train_per_fold_models,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -99,8 +109,16 @@ def _features_path(asset: dict, data_root: Path) -> Path:
     return data_root / "features" / asset["asset_class"] / f"{slug}.parquet"
 
 
+def _parse_param(raw: str) -> int | float:
+    """Parse an MLflow-logged hyperparameter string back to int/float."""
+    try:
+        return int(raw)
+    except ValueError:
+        return float(raw)
+
+
 def _collect_per_fold_rows(
-    model,
+    fold_models: dict,
     asset_feature_dfs: dict[str, pd.DataFrame],
     asset_target_series: dict[str, pd.Series],
     asset_processed_dfs: dict[str, pd.DataFrame],
@@ -115,11 +133,11 @@ def _collect_per_fold_rows(
 
     The walk-forward folds are IDENTICAL for LightGBM and all three baselines
     (T-03-08 compliance): splits are computed once per asset and shared.
-    """
-    # CR-02: the model's training column order is the single source of truth
-    # for the eval feature schema — same discipline as evaluate_per_asset.
-    feature_order = list(model.feature_name_)
 
+    Leak-free per-fold scoring (CR-01): fold ``k``'s test window is predicted
+    by ``fold_models[k]`` — the model trained at that fold's own cutoff —
+    mirroring the baselines' walk-forward refit discipline.
+    """
     rows: list[dict] = []
 
     for symbol, feat_df in asset_feature_dfs.items():
@@ -143,13 +161,17 @@ def _collect_per_fold_rows(
         # Walk forward: LightGBM predictions on test folds
         log_target = asset_target_series[symbol]
 
-        for split in walk_forward_splits(len(feat_df), MIN_TRAIN, STEP, HORIZON):
+        for fold_i, split in enumerate(walk_forward_splits(len(feat_df), MIN_TRAIN, STEP, HORIZON)):
+            # CR-01: score this fold ONLY with its own fold's model.
+            model = resolve_fold_model(fold_models, fold_i)
+            # CR-02: the model's training column order is the single source of
+            # truth for the eval feature schema.
+            feature_order = list(model.feature_name_)
+
             test_idx = split.test_idx
             test_dates = feat_df.index[test_idx]
 
             # LightGBM prediction (same as evaluate_per_asset).
-            # CR-02: reindex to the model's exact training column order and
-            # validate feature names so a transposed frame raises loudly.
             x_test = feat_df.iloc[test_idx].copy()
             x_test["asset"] = symbol
             x_test = x_test.reindex(columns=feature_order)
@@ -575,10 +597,40 @@ def main() -> None:
         asset_processed_dfs[slug] = proc_df
         log.info("Loaded %s: feat=%s", slug, feat_df.shape)
 
+    # --- Retrain one pooled model per outer fold (CR-01 — leak-free) ---
+    # The registry stores only the final-fold champion.  A leak-free
+    # walk-forward comparison needs one model per fold, so we retrain them
+    # deterministically (random_state=42) with the champion run's logged
+    # hyperparameters — the final-fold retrain reproduces the champion's
+    # training procedure exactly.
+    run = client.get_run(mv.run_id)
+    best_params = {k: _parse_param(run.data.params[k]) for k in PARAM_GRID}
+    log.info("Champion hyperparameters from run %s: %s", mv.run_id, best_params)
+
+    log.info("Retraining per-fold pooled models for leak-free comparison...")
+    fold_models = train_per_fold_models(
+        asset_feature_dfs,
+        asset_target_series,
+        params=best_params,
+        min_train=MIN_TRAIN,
+        step=STEP,
+        horizon=HORIZON,
+    )
+
+    # Sanity: the retrained models must share the champion's feature schema.
+    final_model = fold_models[max(fold_models)]
+    if list(final_model.feature_name_) != list(model.feature_name_):
+        log.warning(
+            "Retrained final-fold feature order differs from registry champion "
+            "— possible data or params drift since training. Champion: %s / Retrained: %s",
+            list(model.feature_name_),
+            list(final_model.feature_name_),
+        )
+
     # --- Collect per-fold rows across all assets ---
     log.info("Collecting per-fold predictions and baseline forecasts...")
     all_rows = _collect_per_fold_rows(
-        model,
+        fold_models,
         asset_feature_dfs,
         asset_target_series,
         asset_processed_dfs,

@@ -13,9 +13,12 @@ It expects:
 Steps:
 1. Load 5 feature parquets and derive per-asset log-variance targets.
 2. Run inner-validation-only grid search to pick best hyperparameters.
-3. Train final pooled LightGBM on the last available fold.
-4. Evaluate per-asset RMSE/MAE/QLIKE on walk-forward test folds.
+3. Train one pooled LightGBM PER outer walk-forward fold with the shared
+   best params (CR-01 — mirrors the baselines' per-step refit discipline).
+4. Evaluate per-asset RMSE/MAE/QLIKE on walk-forward test folds — each fold
+   scored only by its own fold's model (leak-free).
 5. Open an MLflow run: log params, metrics, tags, SHAP artifacts, model.
+   The registered model is the FINAL fold's model (champion candidate).
 6. Register as volforecast-lgbm and assign the @champion alias.
 7. Verify round-trip via get_model_version_by_alias.
 """
@@ -63,7 +66,7 @@ from volforecast.models.lgbm import (
     evaluate_per_asset,
     grid_search,
     to_log_var,
-    train_pooled_model,
+    train_per_fold_models,
 )
 
 logging.basicConfig(
@@ -173,30 +176,37 @@ def main() -> None:
     )
     log.info("Best params from grid search: %s", best_params)
 
-    # --- Train final model on last available fold ---
-    # Determine last fold index (minimum across all assets)
+    # --- Train one pooled model per outer fold (CR-01 — leak-free eval) ---
+    # Each fold's test window is scored only by the model trained at that
+    # fold's own cutoff, mirroring the baselines' walk-forward refit
+    # discipline.  The FINAL fold's model is the registry champion candidate.
     min_folds = min(
         len(list(walk_forward_splits(len(df), MIN_TRAIN, STEP, HORIZON)))
         for df in asset_feature_dfs.values()
     )
     final_fold_i = min_folds - 1
-    log.info("Training final model on fold_i=%d (last outer fold)...", final_fold_i)
+    log.info("Training %d per-fold pooled models (CR-01 leak-free walk-forward)...", min_folds)
 
-    model, best_iter = train_pooled_model(
+    fold_models = train_per_fold_models(
         asset_feature_dfs,
         asset_target_series,
         params=best_params,
-        fold_i=final_fold_i,
         min_train=MIN_TRAIN,
         step=STEP,
         horizon=HORIZON,
     )
-    log.info("Final model trained. best_iteration=%d", best_iter)
+    model = fold_models[final_fold_i]  # champion candidate = final fold's model
+    best_iter = int(model.best_iteration_)
+    log.info(
+        "Per-fold models trained. Champion candidate: fold_i=%d best_iteration=%d",
+        final_fold_i,
+        best_iter,
+    )
 
-    # --- Evaluate per-asset on walk-forward test folds ---
+    # --- Evaluate per-asset on walk-forward test folds (per-fold models) ---
     log.info("Evaluating per-asset on walk-forward test folds...")
     per_asset_metrics = evaluate_per_asset(
-        model,
+        fold_models,
         asset_feature_dfs,
         asset_target_series,
         min_train=MIN_TRAIN,

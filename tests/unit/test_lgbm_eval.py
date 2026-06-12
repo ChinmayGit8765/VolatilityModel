@@ -9,6 +9,13 @@ original per-asset column order and once with every frame's columns reversed —
 and asserts identical metrics.  Pre-fix, the reversed order changed (or
 crashed) every metric.
 
+CR-01 regression: each test fold must be scored ONLY by the model trained at
+that fold's own cutoff.  Recording stub models capture exactly which positions
+each fold's model is asked to predict, and the test asserts that no predicted
+position is at or before that model's per-asset training cutoff (the
+no-train-on-test invariant), including for the documented final-fold fallback
+on longer assets.
+
 All tests are offline with small synthetic per-asset DataFrames.
 No parquet files, no MLflow.
 """
@@ -17,9 +24,12 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
+from volforecast.eval.harness import walk_forward_splits
 from volforecast.models.lgbm import (
     evaluate_per_asset,
+    resolve_fold_model,
     train_pooled_model,
 )
 
@@ -74,15 +84,16 @@ class TestEvalColumnOrder:
             params=_PARAMS,
             fold_i=0,
         )
+        fold_models = {0: model}  # n=300 → exactly one walk-forward fold
 
-        results_original = evaluate_per_asset(model, asset_feature_dfs, asset_target_series)
+        results_original = evaluate_per_asset(fold_models, asset_feature_dfs, asset_target_series)
 
         # Reverse every asset frame's column order — pre-fix this silently
         # fed category codes / wrong floats into transposed columns.
         scrambled_dfs = {
             sym: df[list(reversed(df.columns))].copy() for sym, df in asset_feature_dfs.items()
         }
-        results_scrambled = evaluate_per_asset(model, scrambled_dfs, asset_target_series)
+        results_scrambled = evaluate_per_asset(fold_models, scrambled_dfs, asset_target_series)
 
         assert set(results_original) == {"BTC-USD", "ETH-USD"}
         for sym in results_original:
@@ -96,3 +107,101 @@ class TestEvalColumnOrder:
                     f"({orig[metric]} != {scram[metric]}) — eval frame was "
                     "not reindexed to model.feature_name_"
                 )
+
+
+# ---------------------------------------------------------------------------
+# CR-01: per-fold leak-freedom
+# ---------------------------------------------------------------------------
+
+
+class _RecordingModel:
+    """Duck-typed stand-in for LGBMRegressor that records what it scores."""
+
+    def __init__(self, feature_order: list[str]):
+        self.feature_name_ = list(feature_order)
+        self.calls: list[tuple[str, np.ndarray]] = []
+
+    def predict(self, x: pd.DataFrame, validate_features: bool = False) -> np.ndarray:
+        assert list(x.columns) == self.feature_name_, (
+            "eval frame columns do not match the model's training order"
+        )
+        self.calls.append((str(x["asset"].iloc[0]), x["orig_pos"].to_numpy()))
+        return np.zeros(len(x), dtype=float)
+
+
+class TestPerFoldLeakFreedom:
+    """CR-01: no test position may precede its scoring model's train cutoff."""
+
+    def _make_panel(self):
+        rng = np.random.default_rng(7)
+        # Fold counts (min_train=252, step=21): 300→1, 340→3, 380→5.
+        lengths = {"BTC-USD": 380, "ETH-USD": 340, "SPY": 300}
+        asset_feature_dfs: dict[str, pd.DataFrame] = {}
+        asset_target_series: dict[str, pd.Series] = {}
+        for sym, n in lengths.items():
+            asset_feature_dfs[sym] = pd.DataFrame(
+                {
+                    "f1": rng.standard_normal(n),
+                    "orig_pos": np.arange(n, dtype=float),
+                },
+                index=pd.RangeIndex(n),
+            )
+            tgt = pd.Series(rng.uniform(-9.0, -7.0, size=n))
+            tgt.iloc[-1] = np.nan
+            asset_target_series[sym] = tgt
+        return asset_feature_dfs, asset_target_series
+
+    def test_no_test_position_precedes_its_models_train_cutoff(self):
+        asset_feature_dfs, asset_target_series = self._make_panel()
+        feature_order = ["f1", "orig_pos", "asset"]
+
+        # 3-model mapping: SPY uses fold 0 only; ETH uses folds 0-2; BTC's
+        # folds 3-4 exercise the documented final-fold fallback (leak-free
+        # under an expanding window).
+        fold_models = {k: _RecordingModel(feature_order) for k in range(3)}
+
+        evaluate_per_asset(fold_models, asset_feature_dfs, asset_target_series)
+
+        for k, stub in fold_models.items():
+            assert stub.calls, f"fold model {k} was never used"
+            for sym, positions in stub.calls:
+                splits = list(walk_forward_splits(len(asset_feature_dfs[sym])))
+                train_cutoff = int(splits[k].train_idx.max())
+                assert positions.min() > train_cutoff, (
+                    f"fold model {k} scored {sym} position {int(positions.min())} "
+                    f"at-or-before its own train cutoff {train_cutoff} — "
+                    "train-on-test leakage"
+                )
+
+    def test_each_fold_scored_by_its_own_model(self):
+        """Within the mapping range, fold k's test window goes to model k only."""
+        asset_feature_dfs, asset_target_series = self._make_panel()
+        feature_order = ["f1", "orig_pos", "asset"]
+        fold_models = {k: _RecordingModel(feature_order) for k in range(3)}
+
+        evaluate_per_asset(fold_models, asset_feature_dfs, asset_target_series)
+
+        for k, stub in fold_models.items():
+            for sym, positions in stub.calls:
+                splits = list(walk_forward_splits(len(asset_feature_dfs[sym])))
+                allowed: set[int] = set()
+                for fold_i, split in enumerate(splits):
+                    # Model k legally scores its own fold, plus later folds
+                    # ONLY when it is the final model in the mapping.
+                    if fold_i == k or (k == max(fold_models) and fold_i > k):
+                        allowed.update(split.test_idx.tolist())
+                got = {int(p) for p in positions}
+                assert got <= allowed, (
+                    f"fold model {k} scored {sym} positions outside its "
+                    f"legal test windows: {sorted(got - allowed)[:5]}..."
+                )
+
+    def test_resolve_fold_model_contract(self):
+        """Fallback beyond the range; KeyError on holes inside the range."""
+        m0, m2 = object(), object()
+        fold_models = {0: m0, 2: m2}
+        assert resolve_fold_model(fold_models, 0) is m0
+        assert resolve_fold_model(fold_models, 2) is m2
+        assert resolve_fold_model(fold_models, 7) is m2  # beyond range → final
+        with pytest.raises(KeyError):
+            resolve_fold_model(fold_models, 1)  # hole inside range → loud

@@ -17,13 +17,17 @@ This module is the single source of truth for:
    any cross-asset temporal leakage (Pitfall 1).
 
 4. **Grid search and training** — ``PARAM_GRID``, ``grid_search``,
-   ``train_pooled_model``:
+   ``train_pooled_model``, ``train_per_fold_models``:
    Hyperparameter selection on inner validation folds only (never test folds —
-   Pitfall 2).  Final pooled model trained with best params.
+   Pitfall 2).  One pooled model is trained PER outer walk-forward fold with
+   the shared best params (CR-01) — mirroring the baselines' per-step refit
+   discipline.  The final fold's model is the registry champion.
 
 5. **Per-asset evaluation** — ``evaluate_per_asset``:
    Walk-forward variance-scale RMSE/MAE/QLIKE on identical folds as Phase 2
-   baselines, using the canonical eval/metrics.py functions.
+   baselines, using the canonical eval/metrics.py functions.  Each test fold
+   is scored ONLY by the model trained at that fold's own cutoff — never by a
+   model whose training window contains the fold (CR-01).
 
 6. **SHAP explainability** — ``compute_shap_artifacts``:
    TreeExplainer on the native LGBMRegressor object (Pitfall 6 — never
@@ -82,7 +86,7 @@ from volforecast.eval.harness import walk_forward_splits
 from volforecast.eval.metrics import mae, qlike, rmse
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
 log = logging.getLogger(__name__)
 
@@ -377,6 +381,28 @@ def _build_inner_train_set(
     return x_tr_pooled, y_tr_pooled
 
 
+def _min_fold_count(
+    asset_feature_dfs: dict[str, pd.DataFrame],
+    min_train: int = 252,
+    step: int = 21,
+    horizon: int = 1,
+) -> int:
+    """Return the number of walk-forward folds common to ALL assets.
+
+    Raises:
+        ValueError: if no asset produces any fold (check min_train/step/n_rows).
+    """
+    min_folds: int | None = None
+    for feat_df in asset_feature_dfs.values():
+        n_folds = len(list(walk_forward_splits(len(feat_df), min_train, step, horizon)))
+        if min_folds is None or n_folds < min_folds:
+            min_folds = n_folds
+
+    if min_folds is None or min_folds == 0:
+        raise ValueError("No walk-forward folds found — check min_train/step/n_rows.")
+    return min_folds
+
+
 def grid_search(
     asset_feature_dfs: dict[str, pd.DataFrame],
     asset_target_series: dict[str, pd.Series],
@@ -425,16 +451,7 @@ def grid_search(
         log.info("Grid search: %d combos", len(combos))
 
     # Use the LAST outer fold available across all assets for inner-val selection.
-    # Determine the max fold index common to all assets (min fold count).
-    min_folds = None
-    for symbol, feat_df in asset_feature_dfs.items():
-        n_folds = len(list(walk_forward_splits(len(feat_df), min_train, step, horizon)))
-        if min_folds is None or n_folds < min_folds:
-            min_folds = n_folds
-
-    if min_folds is None or min_folds == 0:
-        raise ValueError("No walk-forward folds found — check min_train/step/n_rows.")
-
+    min_folds = _min_fold_count(asset_feature_dfs, min_train, step, horizon)
     outer_fold_i = min_folds - 1  # last fold available for all assets
 
     x_tr, y_tr = _build_inner_train_set(
@@ -561,25 +578,119 @@ def train_pooled_model(
     return model, model.best_iteration_
 
 
+def train_per_fold_models(
+    asset_feature_dfs: dict[str, pd.DataFrame],
+    asset_target_series: dict[str, pd.Series],
+    params: dict[str, Any],
+    min_train: int = 252,
+    step: int = 21,
+    horizon: int = 1,
+    n_estimators: int = 1000,
+    stopping_rounds: int = 50,
+    verbose: bool = True,
+) -> dict[int, LGBMRegressor]:
+    """Train one pooled LightGBM model per outer walk-forward fold (CR-01).
+
+    Mirrors the baselines' walk-forward refit discipline: the model that
+    scores fold ``k``'s test window is trained ONLY on data inside fold
+    ``k``'s training window (with early stopping on that fold's own inner-val
+    carve).  This is what makes the ML-vs-baseline comparison leak-free — a
+    single model trained at the LAST fold's cutoff would contain every earlier
+    test window inside its training set (train-on-test contamination).
+
+    Args:
+        asset_feature_dfs: Mapping symbol → feature DataFrame.
+        asset_target_series: Mapping symbol → log-variance target Series.
+        params: Shared hyperparameter dict (e.g., from ``grid_search``).
+        min_train: Minimum training window size (default 252).
+        step: Walk-forward step size (default 21).
+        horizon: Label horizon (default 1).
+        n_estimators: Max boosting rounds per model (early stopping controls
+            actual rounds).
+        stopping_rounds: Early stopping rounds (default 50).
+        verbose: If True, log per-fold progress via module logger.
+
+    Returns:
+        ``{fold_i: fitted LGBMRegressor}`` for ``fold_i`` in
+        ``range(min_fold_count)``, where ``min_fold_count`` is the number of
+        folds common to all assets.  The last entry (``min_fold_count - 1``)
+        is the registry champion candidate.
+    """
+    min_folds = _min_fold_count(asset_feature_dfs, min_train, step, horizon)
+    fold_models: dict[int, LGBMRegressor] = {}
+    for fold_i in range(min_folds):
+        model, best_iter = train_pooled_model(
+            asset_feature_dfs,
+            asset_target_series,
+            params=params,
+            fold_i=fold_i,
+            min_train=min_train,
+            step=step,
+            horizon=horizon,
+            n_estimators=n_estimators,
+            stopping_rounds=stopping_rounds,
+        )
+        fold_models[fold_i] = model
+        if verbose:
+            log.info(
+                "  per-fold model %d/%d trained (best_iteration=%d)",
+                fold_i + 1,
+                min_folds,
+                best_iter,
+            )
+    return fold_models
+
+
+def resolve_fold_model(fold_models: Mapping[int, LGBMRegressor], fold_i: int) -> LGBMRegressor:
+    """Return the model that may legally score fold ``fold_i``'s test window.
+
+    Folds beyond the pooled-model range (``fold_i > max(fold_models)``) exist
+    only for assets with longer histories than the shortest asset.  The final
+    fold's model is leak-free for those later windows too: with an expanding
+    window, its per-asset training cutoff (``min_train + max_fold*step -
+    horizon``) lies strictly before any later fold's test start
+    (``min_train + fold_i*step``).
+
+    Raises:
+        KeyError: if ``fold_i`` falls INSIDE the trained range but is missing —
+            a corrupted mapping must never be silently substituted.
+    """
+    if fold_i in fold_models:
+        return fold_models[fold_i]
+    max_fold = max(fold_models)
+    if fold_i > max_fold:
+        return fold_models[max_fold]
+    raise KeyError(
+        f"fold_models has no model for fold {fold_i} (available: {sorted(fold_models)})."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Per-asset evaluation
 # ---------------------------------------------------------------------------
 
 
 def evaluate_per_asset(
-    model: LGBMRegressor,
+    fold_models: Mapping[int, LGBMRegressor],
     asset_feature_dfs: dict[str, pd.DataFrame],
     asset_target_series: dict[str, pd.Series],
     min_train: int = 252,
     step: int = 21,
     horizon: int = 1,
 ) -> dict[str, dict[str, float]]:
-    """Evaluate the model per-asset on walk-forward test folds.
+    """Evaluate the per-fold models per-asset on walk-forward test folds.
 
     Uses the identical ``walk_forward_splits`` sequence as the Phase 2
     baselines.  Predictions are inverse-transformed (``from_log_var``) before
     scoring, so all metrics are on the VARIANCE scale — apples-to-apples
     comparison with ``reports/baseline_metrics.csv``.
+
+    Leak-free per-fold scoring (CR-01): each test fold ``k`` is predicted by
+    ``fold_models[k]`` — the model trained at that fold's own cutoff (see
+    ``train_per_fold_models``).  Folds beyond ``max(fold_models)`` (longer
+    assets only) fall back to the final fold's model, which remains strictly
+    out-of-sample for those later windows under the expanding window (see
+    ``resolve_fold_model``).
 
     Cross-asset column alignment (CR-02): different assets have different
     cross-asset feature columns (e.g. ``rv_22_eth`` for BTC, ``rv_22_btc``
@@ -592,7 +703,8 @@ def evaluate_per_asset(
     column COUNT).
 
     Args:
-        model: Fitted LGBMRegressor (native model object, not pyfunc).
+        fold_models: Mapping fold index → fitted LGBMRegressor (native model
+            objects, not pyfunc) from ``train_per_fold_models``.
         asset_feature_dfs: Mapping symbol → feature DataFrame.
         asset_target_series: Mapping symbol → log-variance target Series.
         min_train: Walk-forward harness min train parameter (default 252).
@@ -603,10 +715,6 @@ def evaluate_per_asset(
         Dict ``{symbol: {"rmse": ..., "mae": ..., "qlike": ...,
         "n_forecasts": ...}}``.
     """
-    # The model's training column order is the single source of truth for the
-    # eval feature schema (CR-02 — never rebuild the column union by hand).
-    feature_order = list(model.feature_name_)
-
     results: dict[str, dict[str, float]] = {}
 
     for symbol, feat_df in asset_feature_dfs.items():
@@ -614,7 +722,14 @@ def evaluate_per_asset(
         all_pred_var: list[np.ndarray] = []
         all_true_var: list[np.ndarray] = []
 
-        for split in walk_forward_splits(len(feat_df), min_train, step, horizon):
+        for fold_i, split in enumerate(walk_forward_splits(len(feat_df), min_train, step, horizon)):
+            # CR-01: score this fold ONLY with the model trained at this
+            # fold's own cutoff (or the leak-free final-fold fallback).
+            model = resolve_fold_model(fold_models, fold_i)
+            # The model's training column order is the single source of truth
+            # for the eval feature schema (CR-02).
+            feature_order = list(model.feature_name_)
+
             test_idx = split.test_idx
             x_test = feat_df.iloc[test_idx].copy()
             x_test["asset"] = symbol
