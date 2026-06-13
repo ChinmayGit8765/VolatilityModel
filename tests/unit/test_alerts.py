@@ -13,7 +13,6 @@ from urllib.error import URLError
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helper: read a jsonl file into a list of dicts
 # ---------------------------------------------------------------------------
@@ -32,7 +31,9 @@ def _read_jsonl(path: Path) -> list[dict]:
 class TestWebhookSuccess:
     """Test 1: ALERT_WEBHOOK_URL set and POST succeeds."""
 
-    def test_webhook_success_no_jsonl(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_webhook_success_no_jsonl(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """When the webhook POST succeeds, send_alert returns and does not write jsonl."""
         import urllib.request
 
