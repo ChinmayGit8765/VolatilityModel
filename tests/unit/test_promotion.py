@@ -18,8 +18,15 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import pytest
 
+from volforecast.monitoring.promotion import (
+    MODEL_NAME,
+    PROMOTION_COOLDOWN_DAYS,
+    frozen_window_qlike,
+    promote_if_better,
+    rollback_champion,
+    select_frozen_window,
+)
 
 # ---------------------------------------------------------------------------
 # MLflow client stub (offline, no network)
@@ -112,20 +119,6 @@ def _make_fvr(
             )
     return pd.DataFrame(rows)
 
-
-# ---------------------------------------------------------------------------
-# Imports from the module under test
-# ---------------------------------------------------------------------------
-
-
-from volforecast.monitoring.promotion import (
-    MODEL_NAME,
-    PROMOTION_COOLDOWN_DAYS,
-    frozen_window_qlike,
-    promote_if_better,
-    rollback_champion,
-    select_frozen_window,
-)
 
 # ---------------------------------------------------------------------------
 # Test 1: No-promote default (challenger QLIKE >= champion QLIKE)
@@ -276,7 +269,7 @@ class TestPromoteOnStrictWin:
         assert prev_version_value == "3"  # the old champion
 
     def test_no_previous_champion_on_first_promotion(self) -> None:
-        """When get_model_version_by_alias raises (no existing champion), promotion still succeeds."""
+        """Promotion succeeds even when get_model_version_by_alias raises (no existing champion)."""
 
         class NoChampionClient(FakeMlflowClient):
             def get_model_version_by_alias(self, name: str, alias: str) -> _FakeModelVersion:
