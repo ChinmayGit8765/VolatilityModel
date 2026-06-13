@@ -165,7 +165,8 @@ class TestDegradationTrigger:
         should_retrain, report = check_performance_drift(fvr)
 
         assert should_retrain is True, (
-            f"Expected should_retrain=True (champion QLIKE >> GARCH QLIKE by >{DEGRADATION_THRESHOLD:.0%})"
+            "Expected should_retrain=True "
+            f"(champion QLIKE >> GARCH QLIKE by >{DEGRADATION_THRESHOLD:.0%})"
         )
         assert "champion_qlike" in report, "report must include champion_qlike"
         assert "garch_qlike" in report, "report must include garch_qlike"
