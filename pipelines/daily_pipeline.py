@@ -48,12 +48,26 @@ Usage (manual run via compose):
 from __future__ import annotations
 
 import datetime
+import logging
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 from prefect import flow, get_run_logger, task
+from prefect.exceptions import MissingContextError
+
+
+def _get_logger() -> logging.Logger:
+    """Return a Prefect run logger if inside a Prefect context, else a stdlib logger.
+
+    This allows task.fn() calls in tests (which have no Prefect context) to work
+    without raising MissingContextError.
+    """
+    try:
+        return get_run_logger()
+    except MissingContextError:
+        return logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Path helpers
@@ -95,7 +109,7 @@ def _monitoring_dir() -> Path:
 
 def _run_script(script_path: Path, description: str) -> subprocess.CompletedProcess:
     """Run a Python script via the current interpreter; raise on non-zero exit."""
-    logger = get_run_logger()
+    logger = _get_logger()
     logger.info("Running %s (%s)", description, script_path)
     result = subprocess.run(
         [sys.executable, str(script_path)],
@@ -132,7 +146,7 @@ def ingest_validate_task() -> None:
     ingest + validate.  Non-zero exit raises so Prefect surfaces a data-quality
     hard-fail (locked taxonomy: data-quality failure → pipeline hard-fail).
     """
-    logger = get_run_logger()
+    logger = _get_logger()
     logger.info("Starting ingest+validate via 'volforecast ingest' CLI")
 
     result = subprocess.run(
@@ -168,7 +182,7 @@ def label_task() -> int:
     Reads predictions.parquet + processed data, appends new rows to
     forecast_vs_realized.parquet (idempotent via LABEL_KEY dedup).
     """
-    logger = get_run_logger()
+    logger = _get_logger()
     from volforecast.monitoring.labeller import label_forecasts
 
     data_root = _data_root()
@@ -196,7 +210,7 @@ def drift_check_task() -> str:
 
     from volforecast.monitoring.drift import run_distribution_drift, select_numerical_columns
 
-    logger = get_run_logger()
+    logger = _get_logger()
     date_str = datetime.date.today().isoformat()
     monitoring_dir = _monitoring_dir()
 
@@ -280,7 +294,7 @@ def performance_check_task() -> bool:
     """
     from volforecast.monitoring.performance import run_performance_monitor
 
-    logger = get_run_logger()
+    logger = _get_logger()
     fvr_path = _fvr_path()
 
     if not fvr_path.exists():
@@ -315,7 +329,7 @@ def retrain_task() -> str:
     import mlflow
     from mlflow import MlflowClient
 
-    logger = get_run_logger()
+    logger = _get_logger()
 
     # --- Run train_lgbm.py ---
     _run_script(_repo_root() / "scripts" / "train_lgbm.py", "train_lgbm")
@@ -396,7 +410,7 @@ def promotion_gate_task(challenger_version: str) -> bool:
         promote_if_better,
     )
 
-    logger = get_run_logger()
+    logger = _get_logger()
     fvr_path = _fvr_path()
     today = datetime.date.today()
 
@@ -497,7 +511,7 @@ def daily_flow(force_retrain: bool = False) -> dict[str, Any]:
         Summary dict with keys: rows_labelled, drift_report_path, should_retrain,
         challenger_version, promoted, run_date.  Logged for observability.
     """
-    logger = get_run_logger()
+    logger = _get_logger()
     logger.info("daily_flow starting — force_retrain=%s", force_retrain)
 
     # 1. Ingest + validate (retries=2, retry_delay_seconds=30)
