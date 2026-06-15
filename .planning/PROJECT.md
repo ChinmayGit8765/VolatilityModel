@@ -12,25 +12,24 @@ Honestly benchmark an ML volatility model against the correct classical baseline
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Ingest daily OHLCV for crypto (BTC, ETH via ccxt/Binance) and equities (SPY + large caps via yfinance), handling 24/7 crypto vs session-gapped equity calendars — Validated in Phase 1
+- [x] Validate ingested data with Pandera gates (gaps, bad ticks, stale data) before it reaches features — Validated in Phase 1
+- [x] GitHub Actions CI: lint + tests + fixture-only build (no live API calls in CI) — Validated in Phase 1
+- [x] DVC data versioning for raw + processed datasets — Validated in Phase 1
+- [x] Reproducible feature pipeline: multi-lookback realized vol (5/10/22/66), log/squared returns, lagged vol, EWMA vol, GARCH(1,1) conditional vol as feature, Parkinson/Garman-Klass estimators, vol-of-vol, rolling skew/kurtosis, cross-asset features, calendar features — Validated in Phase 2
+- [x] Classical baselines: EWMA, GARCH(1,1) (arch library), and HAR-RV on a leak-free purged walk-forward harness — Validated in Phase 2
+- [x] Walk-forward / time-series CV only; metrics RMSE, MAE, QLIKE — each vs classical baselines — Validated in Phase 2
+- [x] LightGBM regression model tracked in MLflow (runs, metrics, alias-based registry @champion/@challenger) — Validated in Phase 3
+- [x] FastAPI + Docker real-time inference service serving vol forecasts with an append-only prediction log — Validated in Phase 3
+- [x] SHAP explainability on the gradient-boosted model — Validated in Phase 3
+- [x] Evidently drift detection on features/predictions with alerting (report-only — never auto-promotes) — Validated in Phase 4
+- [x] Closed feedback loop: log forecast vs realized vol (auto-arriving label), feed errors into monitoring/retraining — Validated in Phase 4
+- [x] Champion/challenger: promote only if challenger beats champion on rolling QLIKE; rollback as single alias flip — Validated in Phase 4
+- [x] Prefect orchestration DAG: ingest → validate → features → label → drift-check → conditional retrain → eval → register → promotion-gate; scheduled + drift-triggered retrain — Validated in Phase 4 (live deployment registration pending operator UAT — see 04-HUMAN-UAT.md)
 
 ### Active
 
-- [ ] Ingest daily OHLCV for crypto (BTC, ETH via ccxt/Binance) and equities (SPY + large caps via yfinance), handling 24/7 crypto vs session-gapped equity calendars
-- [ ] Validate ingested data with Pandera gates (gaps, bad ticks, stale data) before it reaches features
-- [ ] Reproducible feature pipeline: multi-lookback realized vol (5/10/22/66), log/squared returns, lagged vol, EWMA vol, GARCH(1,1) conditional vol as feature, Parkinson/Garman-Klass estimators, vol-of-vol, rolling skew/kurtosis, cross-asset features, calendar features
-- [ ] Classical baselines: EWMA and GARCH(1,1) (arch library) with walk-forward harness
-- [ ] LightGBM regression model tracked in MLflow (runs, metrics, registry, staging→prod promotion)
-- [ ] Walk-forward / time-series CV only; metrics RMSE, MAE, QLIKE — each vs GARCH baseline
-- [ ] FastAPI + Docker real-time inference service serving vol forecasts
-- [ ] Evidently drift detection on features/predictions with alerting
-- [ ] Closed feedback loop: log forecast vs realized vol (auto-arriving label), feed errors into monitoring/retraining
-- [ ] Champion/challenger: promote only if challenger beats champion on rolling QLIKE
-- [ ] Prefect orchestration DAG: ingest → validate → features → train → eval → register → deploy; scheduled + drift-triggered retrain
-- [ ] GitHub Actions CI/CD: lint + tests + build (+ optional retrain kick-off)
 - [ ] Streamlit observability dashboard: forecast-vs-realized, drift status, model version, latency
-- [ ] DVC data versioning; MLflow model stages for rollback
-- [ ] SHAP explainability on the gradient-boosted model
 - [ ] MODEL_CARD.md with honest metrics, baselines, limitations; README with architecture diagram
 
 ### Out of Scope
@@ -90,4 +89,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-10 after initialization*
+*Last updated: 2026-06-15 after Phase 4 (monitoring, orchestration & retraining) completion*
