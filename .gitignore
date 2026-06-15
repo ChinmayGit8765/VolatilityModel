@@ -46,6 +46,17 @@ htmlcov/
 # MLflow
 mlruns/
 mlartifacts/
+# Host-side SQLite tracking DB created by local mlflow/test runs.
+# The docker-compose stack uses Postgres as the MLflow backend — never commit this.
+mlflow.db
+mlflow.db-journal
 
 # Prefect
 .prefect/
+
+# Monitoring runtime outputs (regenerated every run).
+# NOTE: the frozen reference snapshots under data/monitoring/reference/ are
+# intentionally tracked so drift detection works on a fresh clone.
+data/monitoring/forecast_vs_realized.parquet
+data/monitoring/*_drift.html
+data/monitoring/*_drift.json
