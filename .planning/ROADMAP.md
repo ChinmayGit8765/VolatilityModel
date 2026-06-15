@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Features, Target & Classical Baselines** - Documented RV target, single feature codepath, and a leak-free walk-forward harness scoring EWMA/GARCH/HAR-RV (completed 2026-06-11)
 - [x] **Phase 3: ML Challenger & Serving** - MLflow-tracked LightGBM benchmarked on identical folds, served via Dockerized FastAPI with an append-only prediction log (completed 2026-06-11)
 - [x] **Phase 4: Monitoring, Orchestration & Retraining** - Closed feedback loop: auto labels, drift detection, alerting, Prefect DAG, QLIKE-gated champion/challenger promotion (completed 2026-06-15)
-- [ ] **Phase 5: Dashboard & Honest Documentation** - Streamlit observability dashboard, MODEL_CARD.md with regime-segmented honest results, README with architecture diagram
+- [x] **Phase 5: Dashboard & Honest Documentation** - Streamlit observability dashboard, MODEL_CARD.md with regime-segmented honest results, README with architecture diagram (completed 2026-06-15)
 
 ## Phase Details
 
@@ -104,9 +104,9 @@ Plans:
   3. README contains an architecture diagram, docker-compose how-to-run instructions, and a "what I learned" writeup
 **Plans**: 3 plans
 Plans:
-- [ ] 05-01-PLAN.md — Streamlit observability dashboard (4 locked panels, empty-state) + `dashboard` docker-compose service mirroring api (127.0.0.1:8501, depends_on mlflow-server+api) [DASH-01]
-- [ ] 05-02-PLAN.md — MODEL_CARD.md: honest per-asset + per-regime metrics vs EWMA/GARCH/HAR sourced from reports/, naming every regime where ML loses [DOCS-01]
-- [ ] 05-03-PLAN.md — README: Mermaid architecture diagram + docker-compose how-to-run (ports incl. dashboard 8501) + first-run sequence + honest "what I learned" [DOCS-02]
+- [x] 05-01-PLAN.md — Streamlit observability dashboard (4 locked panels, empty-state) + `dashboard` docker-compose service mirroring api (127.0.0.1:8501, depends_on mlflow-server+api) [DASH-01]
+- [x] 05-02-PLAN.md — MODEL_CARD.md: honest per-asset + per-regime metrics vs EWMA/GARCH/HAR sourced from reports/, naming every regime where ML loses [DOCS-01]
+- [x] 05-03-PLAN.md — README: Mermaid architecture diagram + docker-compose how-to-run (ports incl. dashboard 8501) + first-run sequence + honest "what I learned" [DOCS-02]
 **UI hint**: yes
 
 ## Progress
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Features, Target & Classical Baselines | 4/4 | Complete   | 2026-06-11 |
 | 3. ML Challenger & Serving | 4/4 | Complete   | 2026-06-11 |
 | 4. Monitoring, Orchestration & Retraining | 5/5 | Complete   | 2026-06-15 |
-| 5. Dashboard & Honest Documentation | 0/3 | Not started | - |
+| 5. Dashboard & Honest Documentation | 3/3 | Complete   | 2026-06-15 |
 
 ---
 *Roadmap created: 2026-06-10*
