@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation & Validated Data** - Reproducible local stack (package, compose, CI) ingesting and validating 2+ years of crypto + equity OHLCV under DVC (completed 2026-06-10)
 - [x] **Phase 2: Features, Target & Classical Baselines** - Documented RV target, single feature codepath, and a leak-free walk-forward harness scoring EWMA/GARCH/HAR-RV (completed 2026-06-11)
 - [x] **Phase 3: ML Challenger & Serving** - MLflow-tracked LightGBM benchmarked on identical folds, served via Dockerized FastAPI with an append-only prediction log (completed 2026-06-11)
-- [ ] **Phase 4: Monitoring, Orchestration & Retraining** - Closed feedback loop: auto labels, drift detection, alerting, Prefect DAG, QLIKE-gated champion/challenger promotion
+- [x] **Phase 4: Monitoring, Orchestration & Retraining** - Closed feedback loop: auto labels, drift detection, alerting, Prefect DAG, QLIKE-gated champion/challenger promotion (completed 2026-06-15)
 - [ ] **Phase 5: Dashboard & Honest Documentation** - Streamlit observability dashboard, MODEL_CARD.md with regime-segmented honest results, README with architecture diagram
 
 ## Phase Details
@@ -91,7 +91,7 @@ Plans:
 - [x] 04-02-PLAN.md — Evidently dep + frozen reference snapshot + distribution-drift adapter (MON-02)
 - [x] 04-03-PLAN.md — Rolling-QLIKE champion-vs-GARCH performance monitor + configurable alert channel (MON-03, MON-04)
 - [x] 04-04-PLAN.md — QLIKE-gated champion/challenger promotion + alias-flip rollback (ORCH-03)
-- [ ] 04-05-PLAN.md — Prefect daily flow (ingest→...→promotion-gate) + deployment + worker code mount (ORCH-01, ORCH-02)
+- [x] 04-05-PLAN.md — Prefect daily flow (ingest→...→promotion-gate) + deployment + worker code mount (ORCH-01, ORCH-02)
 
 ### Phase 5: Dashboard & Honest Documentation
 **Goal**: A reviewer can see the live system state at a glance and read an honest, regime-segmented account of how ML actually performed against the classical baselines
@@ -115,7 +115,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation & Validated Data | 4/4 | Complete   | 2026-06-10 |
 | 2. Features, Target & Classical Baselines | 4/4 | Complete   | 2026-06-11 |
 | 3. ML Challenger & Serving | 4/4 | Complete   | 2026-06-11 |
-| 4. Monitoring, Orchestration & Retraining | 4/5 | In Progress|  |
+| 4. Monitoring, Orchestration & Retraining | 5/5 | Complete   | 2026-06-15 |
 | 5. Dashboard & Honest Documentation | 0/TBD | Not started | - |
 
 ---
