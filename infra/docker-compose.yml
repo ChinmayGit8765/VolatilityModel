@@ -102,10 +102,32 @@ services:
       - prefect-server
     environment:
       PREFECT_API_URL: "http://prefect-server:4200/api"
+      # Worker needs MLFLOW_TRACKING_URI so retrain_task can register models
+      MLFLOW_TRACKING_URI: "http://mlflow-server:5000"
+      # VOLFORECAST_ROOT tells volforecast.config.project_root() where the repo is
+      # mounted inside the container (must match the volumes entry below).
+      VOLFORECAST_ROOT: "/repo"
     # --type process makes Prefect 3 auto-create the work pool on first start.
     # Without it, the worker errors out because nothing else creates local-pool,
     # and restart: unless-stopped turns that into a crash loop.
     command: prefect worker start --pool local-pool --type process
+    volumes:
+      # Code-visibility mount (T-04-18 / Assumption A4 / Pitfall 4):
+      # A local-process work pool runs the flow entrypoint as a subprocess on the
+      # worker's local filesystem.  Without this bind-mount, flow.from_source() with
+      # source=<local path> cannot resolve "pipelines/daily_pipeline.py:daily_flow"
+      # because the worker container has no access to the repo directory.
+      #
+      # The source path recorded by create_deployment.py (repo root on the HOST)
+      # must be accessible inside the container at the same relative path as
+      # VOLFORECAST_ROOT (/repo).  The worker then finds the entrypoint at
+      # /repo/pipelines/daily_pipeline.py.
+      #
+      # Security posture: bind-mounts the project's own repo directory (read-only
+      # code + config) and the data directory.  No new port is published; loopback-
+      # only posture unchanged (T-04-17).
+      - ..:/repo:ro          # repo root → /repo (read-only: code + config)
+      - ../data:/repo/data   # data/ is rw: ingest writes raw, labeller writes FVR
 
   api:
     # Serving image: python:3.12-slim + libgomp1 (required by LightGBM) + uv sync
