@@ -158,6 +158,40 @@ services:
       # proxy mode so the tracking server proxies artifacts over HTTP (Pitfall 4 resolved).
       - ../data:/data
 
+  dashboard:
+    # Observability dashboard: python:3.12-slim + libgomp1 + uv sync + Streamlit 1.58.0
+    # Mirrors the api service pattern (slim + libgomp1 + split uv-sync + non-root user).
+    build:
+      context: ..
+      dockerfile: infra/dashboard/Dockerfile
+    restart: unless-stopped
+    # Wait for mlflow-server and api to start before the dashboard tries to query them.
+    # Neither has a healthcheck, so service_started is the correct condition (Pattern 9).
+    depends_on:
+      mlflow-server:
+        condition: service_started
+      api:
+        condition: service_started
+    # Loopback-only: dashboard has no authentication; consistent with api/mlflow/prefect
+    # security posture (T-05-01).
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      # Dashboard reads champion metadata from MLflow via compose internal DNS
+      MLFLOW_TRACKING_URI: "http://mlflow-server:5000"
+      # Dashboard probes the API /health endpoint via compose internal DNS
+      API_BASE_URL: "http://api:8000"
+      # Data root: bind-mounted at /data (read-only by design — dashboard never writes)
+      VOLFORECAST_DATA_ROOT: "/data"
+    volumes:
+      # Bind-mount the host data/ dir so the dashboard can read:
+      #   - data/monitoring/forecast_vs_realized.parquet (FVR panel)
+      #   - data/monitoring/{date}_drift.json + .html (drift panel)
+      #   - data/predictions/predictions.parquet (service stats panel)
+      # Security posture: the dashboard code is read-only by design (T-05-02).
+      # The non-root appuser (uid 1000) runs inside, matching the api Dockerfile (T-05-04).
+      - ../data:/data
+
 volumes:
   postgres_data:
   mlflow_artifacts:
