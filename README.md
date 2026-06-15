@@ -236,22 +236,34 @@ tighter point forecasts on typical days. But its **QLIKE is worse than the best 
 baseline for every single asset overall**, and catastrophically worse in high-volatility
 regimes.
 
-Concrete example from `reports/ml_vs_baselines.md`:
+All numbers below are from `reports/ml_vs_baselines.md` (walk-forward, identical test folds).
 
-| Asset / regime | LightGBM QLIKE | Best classical QLIKE | Verdict |
-|----------------|---------------|----------------------|---------|
-| BTC-USD overall | 4.75 | HAR 1.92 | LightGBM loses by 2.83 |
-| BTC-USD / vol-high | **11.50** | GARCH **0.68** | LightGBM loses by 10.82 |
-| ETH-USD / vol-high | 13.88 | HAR 1.10 | LightGBM loses by 12.78 |
-| AAPL / vol-high | 8.67 | HAR 0.97 | LightGBM loses by 7.70 |
-| SPY overall | 2.69 | EWMA 1.63 | LightGBM loses by 1.06 |
+**QLIKE — where LightGBM underperforms:**
+
+| Asset / regime | LightGBM QLIKE | Best classical QLIKE | Worst-case margin |
+|----------------|---------------|----------------------|-------------------|
+| AAPL overall | 3.63 | HAR 1.67 | +1.96 |
+| BTC-USD overall | 4.75 | HAR 1.92 | +2.83 |
+| ETH-USD overall | 5.48 | EWMA 1.93 | +3.54 |
+| MSFT overall | 3.62 | HAR 1.70 | +1.91 |
+| SPY overall | 2.69 | EWMA 1.63 | +1.06 |
+| AAPL / vol-high | 8.67 | HAR 0.97 | +7.70 |
+| BTC-USD / vol-high | **11.50** | GARCH **0.68** | **+10.82** |
+| ETH-USD / vol-high | 13.88 | HAR 1.10 | +12.78 |
+| MSFT / vol-high | 8.61 | HAR 0.83 | +7.77 |
+| SPY / vol-high | 5.60 | HAR 0.69 | +4.91 |
+
+**Where LightGBM wins:** In low- and mid-vol terciles LightGBM dominates on RMSE and MAE
+(e.g. BTC-USD / vol-low: LightGBM RMSE 1.08e-4 vs EWMA 6.16e-4). It is better at
+point-forecasting typical daily variance — the tree model learns cross-asset structure and
+lag patterns that the univariate GARCH/EWMA cannot exploit.
 
 **Why QLIKE matters here:** QLIKE (Quasi-Likelihood loss, Patton 2011 variance form) is
 zero at a perfect forecast and penalizes under-forecasting of volatility spikes
 disproportionately hard. A daily-horizon tree model trained on rolling-window features
 smooths out spike structure — it produces well-calibrated forecasts on calm days, but
 systematically under-forecasts realized variance during high-vol episodes. QLIKE catches
-exactly that failure mode.
+exactly that failure mode, and it is the loss function used in the promotion gate.
 
 **The upshot:** At a daily horizon the classical baselines (GARCH, HAR, EWMA) remain the
 bar to beat for variance loss. The project succeeds on the benchmarking objective either
