@@ -118,9 +118,7 @@ def send_alert(
             log.info("send_alert: delivered via webhook (title=%r)", title)
             return
         # Fall through to JSONL fallback after logging.
-        log.warning(
-            "send_alert: webhook delivery failed; writing fallback to %s", effective_jsonl
-        )
+        log.warning("send_alert: webhook delivery failed; writing fallback to %s", effective_jsonl)
     else:
         log.debug(
             "send_alert: ALERT_WEBHOOK_URL not set; writing to jsonl fallback %s", effective_jsonl

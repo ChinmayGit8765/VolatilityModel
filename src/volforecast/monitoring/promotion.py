@@ -224,8 +224,7 @@ def promote_if_better(
         days_since = (today - last_promotion_date).days
         if days_since < PROMOTION_COOLDOWN_DAYS:
             log.info(
-                "Promotion blocked by cooldown: %d days since last promotion "
-                "(required >= %d)",
+                "Promotion blocked by cooldown: %d days since last promotion (required >= %d)",
                 days_since,
                 PROMOTION_COOLDOWN_DAYS,
             )

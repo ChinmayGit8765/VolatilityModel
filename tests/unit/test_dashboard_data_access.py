@@ -7,9 +7,7 @@ No real MLflow server, no real API, no network calls.
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -252,9 +250,7 @@ class TestChampionInfo:
 
         with patch("volforecast.dashboard.data_access.MlflowClient") as MockClient:
             mock_client = MockClient.return_value
-            mock_client.get_model_version_by_alias.side_effect = Exception(
-                "Connection refused"
-            )
+            mock_client.get_model_version_by_alias.side_effect = Exception("Connection refused")
 
             result = champion_info("http://unreachable:5000")
 
@@ -373,9 +369,9 @@ class TestApiHealth:
 
     def test_connection_error_returns_not_reachable(self) -> None:
         """On connection error, return dict with reachable=False, no raise."""
-        from volforecast.dashboard.data_access import api_health
-
         import urllib.error
+
+        from volforecast.dashboard.data_access import api_health
 
         with patch("volforecast.dashboard.data_access.urllib") as mock_urllib:
             mock_urllib.request.urlopen.side_effect = urllib.error.URLError("refused")
@@ -387,12 +383,11 @@ class TestApiHealth:
 
     def test_timeout_returns_not_reachable(self) -> None:
         """On timeout, return dict with reachable=False."""
+
         from volforecast.dashboard.data_access import api_health
 
-        import socket
-
         with patch("volforecast.dashboard.data_access.urllib") as mock_urllib:
-            mock_urllib.request.urlopen.side_effect = socket.timeout("timed out")
+            mock_urllib.request.urlopen.side_effect = TimeoutError("timed out")
 
             result = api_health("http://api:8000", timeout=1)
 
@@ -462,9 +457,8 @@ class TestImportGuards:
         assert da.FVR_SCHEMA == canonical
 
     def test_data_access_imports_prediction_log_schema_from_serving(self) -> None:
-        """data_access.py must import PREDICTION_LOG_SCHEMA from volforecast.serving.prediction_log."""
+        """data_access.py must import PREDICTION_LOG_SCHEMA from serving.prediction_log."""
         import volforecast.dashboard.data_access as da
-
         from volforecast.serving.prediction_log import PREDICTION_LOG_SCHEMA as canonical
 
         assert da.PREDICTION_LOG_SCHEMA == canonical
@@ -487,6 +481,6 @@ class TestImportGuards:
                     else ([node.module] if node.module else [])
                 )
                 for name in names:
-                    assert name != "streamlit" and not (name or "").startswith(
-                        "streamlit."
-                    ), f"data_access.py must not import streamlit (found: {name})"
+                    assert name != "streamlit" and not (name or "").startswith("streamlit."), (
+                        f"data_access.py must not import streamlit (found: {name})"
+                    )

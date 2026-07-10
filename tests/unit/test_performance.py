@@ -159,7 +159,7 @@ class TestDegradationTrigger:
         fvr = _make_fvr(
             n_days=n_days,
             champ_forecast_scale=50.0,  # terrible champion forecast
-            garch_forecast_scale=1.0,   # perfect GARCH forecast
+            garch_forecast_scale=1.0,  # perfect GARCH forecast
         )
 
         should_retrain, report = check_performance_drift(fvr)
@@ -253,8 +253,8 @@ class TestCanonicalMetricReuse:
         n_days = PERF_WINDOW
         # Use perfectly-controlled synthetic arrays (no randomness in this test)
         realized = np.full(n_days, 5e-4)  # constant realized variance
-        champ_forecast = realized * 3.0   # champion over-forecasts 3x → some QLIKE
-        garch_forecast = realized * 1.0   # GARCH perfect → QLIKE ≈ 0
+        champ_forecast = realized * 3.0  # champion over-forecasts 3x → some QLIKE
+        garch_forecast = realized * 1.0  # GARCH perfect → QLIKE ≈ 0
 
         fvr = pd.DataFrame(
             {

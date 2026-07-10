@@ -230,9 +230,7 @@ with col1:
         latest_per_asset = stats.get("latest_per_asset", {})
         if latest_per_asset:
             st.write("Latest forecast_var per asset:")
-            asset_rows = [
-                {"asset": k, "forecast_var": v} for k, v in latest_per_asset.items()
-            ]
+            asset_rows = [{"asset": k, "forecast_var": v} for k, v in latest_per_asset.items()]
             st.dataframe(pd.DataFrame(asset_rows).set_index("asset"))
 
 with col2:

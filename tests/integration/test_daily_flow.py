@@ -188,9 +188,7 @@ def test_force_retrain_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert call_log.count("promo") == 1, "promotion gate must run exactly once"
 
 
-def test_performance_flag_triggers_retrain(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_performance_flag_triggers_retrain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Performance degradation flag=True triggers retrain even when force_retrain=False.
 
     We create a real FVR file so performance_check_task reads it (not cold-start),
@@ -226,9 +224,7 @@ def test_performance_flag_triggers_retrain(
     monkeypatch.setattr(dp, "_monitoring_dir", lambda: tmp_path / "monitoring")
 
     retrain_calls: list[str] = []
-    monkeypatch.setattr(
-        dp.retrain_task, "fn", lambda: (retrain_calls.append("retrain"), "5")[1]
-    )
+    monkeypatch.setattr(dp.retrain_task, "fn", lambda: (retrain_calls.append("retrain"), "5")[1])
     monkeypatch.setattr(dp.eval_task, "fn", lambda: None)
     monkeypatch.setattr(dp.promotion_gate_task, "fn", lambda v: False)
 
@@ -274,9 +270,7 @@ def test_flow_returns_expected_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         "promoted",
         "run_date",
     }
-    assert required_keys.issubset(result.keys()), (
-        f"Missing keys: {required_keys - result.keys()}"
-    )
+    assert required_keys.issubset(result.keys()), f"Missing keys: {required_keys - result.keys()}"
 
 
 # ---------------------------------------------------------------------------
@@ -303,23 +297,17 @@ def test_label_task_fn_direct(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert result == 7
 
 
-def test_performance_check_task_cold_start(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_performance_check_task_cold_start(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When FVR file does not exist, performance_check_task.fn() returns False (cold start)."""
     import pipelines.daily_pipeline as dp
 
     monkeypatch.setattr(dp, "_fvr_path", lambda: tmp_path / "nonexistent_fvr.parquet")
 
     result = dp.performance_check_task.fn()
-    assert result is False, (
-        "performance_check_task must return False when FVR file does not exist"
-    )
+    assert result is False, "performance_check_task must return False when FVR file does not exist"
 
 
-def test_drift_check_task_no_reference(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_drift_check_task_no_reference(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When reference snapshot is absent, drift_check_task.fn() returns a str and does not raise."""
     import pipelines.daily_pipeline as dp
 

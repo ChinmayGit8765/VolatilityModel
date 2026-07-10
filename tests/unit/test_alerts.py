@@ -119,9 +119,7 @@ class TestWebhookFailureFallback:
 class TestEnvUnsetFallback:
     """Test 3: ALERT_WEBHOOK_URL not set → fallback to jsonl without trying webhook."""
 
-    def test_env_unset_writes_jsonl(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+    def test_env_unset_writes_jsonl(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """When ALERT_WEBHOOK_URL is absent from env, send_alert writes to jsonl."""
         monkeypatch.delenv("ALERT_WEBHOOK_URL", raising=False)
 

@@ -69,6 +69,7 @@ def _get_logger() -> logging.Logger:
     except MissingContextError:
         return logging.getLogger(__name__)
 
+
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
@@ -126,8 +127,7 @@ def _run_script(script_path: Path, description: str) -> subprocess.CompletedProc
             result.stderr[-2000:],
         )
         raise RuntimeError(
-            f"{description} exited with code {result.returncode}. "
-            f"stderr: {result.stderr[-500:]}"
+            f"{description} exited with code {result.returncode}. stderr: {result.stderr[-500:]}"
         )
     logger.info("%s OK: %s", description, result.stdout.strip()[-200:])
     return result
@@ -274,9 +274,7 @@ def drift_check_task() -> str:
             output_dir=monitoring_dir,
             date_str=date_str,
         )
-        logger.info(
-            "Drift report written: %s/%s_drift.{html,json}", monitoring_dir, date_str
-        )
+        logger.info("Drift report written: %s/%s_drift.{html,json}", monitoring_dir, date_str)
     except Exception as exc:
         # Drift check failure is non-fatal — log and continue
         logger.error("Drift check failed (non-fatal): %s", exc)
@@ -360,9 +358,7 @@ def retrain_task() -> str:
 
         if prev_version:
             client.set_registered_model_alias(model_name, "champion", prev_version)
-            logger.info(
-                "Restored @champion -> version %s (previous champion)", prev_version
-            )
+            logger.info("Restored @champion -> version %s (previous champion)", prev_version)
         else:
             logger.warning(
                 "No previous_champion_version tag found on v%s — "
@@ -439,9 +435,7 @@ def promotion_gate_task(challenger_version: str) -> bool:
             champ_prov["n_rows"],
         )
     except ValueError as exc:
-        logger.warning(
-            "Cannot compute champion QLIKE: %s — no-promote (default).", exc
-        )
+        logger.warning("Cannot compute champion QLIKE: %s — no-promote (default).", exc)
         return False
 
     try:
@@ -456,9 +450,7 @@ def promotion_gate_task(challenger_version: str) -> bool:
             chall_prov["n_rows"],
         )
     except ValueError as exc:
-        logger.warning(
-            "Cannot compute challenger QLIKE: %s — no-promote (default).", exc
-        )
+        logger.warning("Cannot compute challenger QLIKE: %s — no-promote (default).", exc)
         return False
 
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")

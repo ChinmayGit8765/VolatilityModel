@@ -233,9 +233,7 @@ class TestPromoteOnStrictWin:
         assert promoted is True
 
         # Exactly one alias flip to "champion" for version 99
-        champion_flips = [
-            (n, a, v) for n, a, v in client.alias_flips if a == "champion"
-        ]
+        champion_flips = [(n, a, v) for n, a, v in client.alias_flips if a == "champion"]
         assert len(champion_flips) == 1, f"Expected 1 champion alias flip, got {champion_flips}"
         _, _, flipped_version = champion_flips[0]
         assert flipped_version == 99
@@ -259,9 +257,7 @@ class TestPromoteOnStrictWin:
 
         # Check that previous_champion_version tag was set on the new version (99)
         prev_tags = [
-            (n, ver, k, v)
-            for n, ver, k, v in client.tags_set
-            if k == "previous_champion_version"
+            (n, ver, k, v) for n, ver, k, v in client.tags_set if k == "previous_champion_version"
         ]
         assert len(prev_tags) == 1, f"Expected 1 previous_champion_version tag, got {prev_tags}"
         _, tagged_version, _, prev_version_value = prev_tags[0]
@@ -395,8 +391,7 @@ class TestIdenticalRowsGuard:
 
         # Row counts must match (same window, same assets)
         assert champ_prov["n_rows"] == chall_prov["n_rows"], (
-            f"Row counts differ: champion={champ_prov['n_rows']}, "
-            f"challenger={chall_prov['n_rows']}"
+            f"Row counts differ: champion={champ_prov['n_rows']}, challenger={chall_prov['n_rows']}"
         )
 
         # Window bounds must be the same (both derived from the same frozen selection)
