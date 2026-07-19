@@ -105,52 +105,99 @@ def load_fvr(data_root_path: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def _find_dataset_drift(obj: Any) -> bool | None:
-    """Recursively search for a 'dataset_drift' boolean in a nested dict/list.
+#: Evidently's default drift-share threshold: the dataset is flagged as
+#: drifted when the SHARE of drifted columns is >= 0.5 (the default
+#: ``drift_share`` of the DriftedColumnsCount metric in Evidently 0.7.x).
+#: Used as fallback when the metric's config does not carry ``drift_share``.
+_DEFAULT_DRIFT_SHARE_THRESHOLD: float = 0.5
 
-    Returns the boolean value if found, else None.
+
+def _drifted_columns_metric(payload: Any) -> dict | None:
+    """Return the DriftedColumnsCount metric entry from an Evidently 0.7 payload.
+
+    Evidently 0.7.x ``Report`` JSON output (the REAL shape written to
+    ``data/monitoring/{date}_drift.json``) is::
+
+        {"metrics": [
+            {"metric_name": "DriftedColumnsCount(drift_share=0.5)",
+             "config": {"type": "evidently:metric_v2:DriftedColumnsCount",
+                        "drift_share": 0.5},
+             "value": {"count": 2.0, "share": 0.11}},
+            {"metric_name": "ValueDrift(column=rv_5,...)", "value": 0.0057},
+            ...
+         ],
+         "tests": []}
+
+    There is NO literal ``dataset_drift`` boolean and NO per-column
+    ``drift_detected`` flags in this format — dataset-level drift must be
+    DERIVED from the DriftedColumnsCount metric's count/share.
+
+    Returns:
+        The full metric dict (so callers can read both ``value`` and
+        ``config``), or None when the payload does not match this shape.
     """
-    if isinstance(obj, dict):
-        if "dataset_drift" in obj:
-            val = obj["dataset_drift"]
-            if isinstance(val, bool):
-                return val
-        for v in obj.values():
-            result = _find_dataset_drift(v)
-            if result is not None:
-                return result
-    elif isinstance(obj, list):
-        for item in obj:
-            result = _find_dataset_drift(item)
-            if result is not None:
-                return result
+    if not isinstance(payload, dict):
+        return None
+    metrics = payload.get("metrics")
+    if not isinstance(metrics, list):
+        return None
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            continue
+        name = metric.get("metric_name")
+        if (
+            isinstance(name, str)
+            and name.startswith("DriftedColumnsCount")
+            and isinstance(metric.get("value"), dict)
+        ):
+            return metric
     return None
 
 
-def _count_drifted_columns(obj: Any) -> int | None:
-    """Count drifted columns by traversing nested dict/list.
+def _find_dataset_drift(payload: Any) -> bool | None:
+    """Derive the dataset-level drift flag from an Evidently 0.7 report payload.
 
-    Looks for 'drift_detected': True entries and sums them.
-    Returns None if no 'drift_detected' keys are found at all.
+    Dataset drift is declared when ``value.share`` of the DriftedColumnsCount
+    metric is >= the drift-share threshold.  The threshold is read from the
+    metric's ``config.drift_share`` when present, else Evidently's default of
+    0.5 (``_DEFAULT_DRIFT_SHARE_THRESHOLD``) is used.
+
+    Returns:
+        True/False when the DriftedColumnsCount metric is parseable, None only
+        when the payload is genuinely unparseable (no such metric / bad types).
     """
-    count = 0
-    found_any = False
+    metric = _drifted_columns_metric(payload)
+    if metric is None:
+        return None
+    share = metric["value"].get("share")
+    if not isinstance(share, (int, float)) or isinstance(share, bool):
+        return None
+    threshold = _DEFAULT_DRIFT_SHARE_THRESHOLD
+    config = metric.get("config")
+    if isinstance(config, dict):
+        configured = config.get("drift_share")
+        if isinstance(configured, (int, float)) and not isinstance(configured, bool):
+            threshold = float(configured)
+    return float(share) >= threshold
 
-    def _recurse(o: Any) -> None:
-        nonlocal count, found_any
-        if isinstance(o, dict):
-            if "drift_detected" in o:
-                found_any = True
-                if o["drift_detected"] is True:
-                    count += 1
-            for v in o.values():
-                _recurse(v)
-        elif isinstance(o, list):
-            for item in o:
-                _recurse(item)
 
-    _recurse(obj)
-    return count if found_any else None
+def _count_drifted_columns(payload: Any) -> int | None:
+    """Return the number of drifted columns from the DriftedColumnsCount metric.
+
+    Reads ``value.count`` of the DriftedColumnsCount metric (Evidently 0.7
+    emits it as a float, e.g. ``0.0`` — cast to int).
+
+    Returns:
+        The drifted-column count, or None only when the payload is genuinely
+        unparseable (no such metric / bad types).
+    """
+    metric = _drifted_columns_metric(payload)
+    if metric is None:
+        return None
+    count = metric["value"].get("count")
+    if not isinstance(count, (int, float)) or isinstance(count, bool):
+        return None
+    return int(count)
 
 
 def latest_drift_summary(monitoring_dir: Path) -> dict | None:
@@ -159,7 +206,8 @@ def latest_drift_summary(monitoring_dir: Path) -> dict | None:
     Searches for files matching ``{date_str}_drift.json`` in monitoring_dir,
     selects the one with the lexicographically latest date_str (ISO date
     strings sort lexicographically = chronologically), parses the Evidently
-    result.dict() payload defensively, and returns a summary dict.
+    0.7 metrics-array payload defensively (see ``_drifted_columns_metric``
+    for the exact shape), and returns a summary dict.
 
     Args:
         monitoring_dir: Path to the monitoring output directory

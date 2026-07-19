@@ -86,6 +86,58 @@ def _write_drift_json(monitoring_dir: Path, date_str: str, payload: dict) -> Pat
     return p
 
 
+def _evidently_07_payload(count: float, share: float, drift_share: float = 0.5) -> dict:
+    """Trimmed mirror of the REAL Evidently 0.7.21 report JSON.
+
+    Copied (and truncated to 2 ValueDrift entries) from the actual pipeline
+    output ``data/monitoring/2026-07-19_drift.json``: a top-level ``metrics``
+    array holding one DriftedColumnsCount entry (value = {count, share}) and
+    one ValueDrift entry per column (value = float).  No ``dataset_drift``
+    boolean and no ``drift_detected`` flags exist anywhere in this format.
+    """
+    return {
+        "metrics": [
+            {
+                "id": "15e89f895b482f9b84ba7274ed18a106",
+                "metric_name": f"DriftedColumnsCount(drift_share={drift_share})",
+                "config": {
+                    "type": "evidently:metric_v2:DriftedColumnsCount",
+                    "drift_share": drift_share,
+                },
+                "value": {"count": count, "share": share},
+            },
+            {
+                "id": "1358ee3ea052bbf5500ada43d67da668",
+                "metric_name": (
+                    "ValueDrift(column=log_return,"
+                    "method=Wasserstein distance (normed),threshold=0.1)"
+                ),
+                "config": {
+                    "type": "evidently:metric_v2:ValueDrift",
+                    "column": "log_return",
+                    "method": "Wasserstein distance (normed)",
+                    "threshold": 0.1,
+                },
+                "value": 0.0033209075502455805,
+            },
+            {
+                "id": "1fae27b9653b49267e0b830cfffc18da",
+                "metric_name": (
+                    "ValueDrift(column=rv_5,method=Wasserstein distance (normed),threshold=0.1)"
+                ),
+                "config": {
+                    "type": "evidently:metric_v2:ValueDrift",
+                    "column": "rv_5",
+                    "method": "Wasserstein distance (normed)",
+                    "threshold": 0.1,
+                },
+                "value": 0.005700922203894937,
+            },
+        ],
+        "tests": [],
+    }
+
+
 # ---------------------------------------------------------------------------
 # load_fvr tests
 # ---------------------------------------------------------------------------
@@ -157,25 +209,12 @@ class TestLatestDriftSummary:
         result = latest_drift_summary(tmp_path / "monitoring" / "nonexistent")
         assert result is None
 
-    def test_single_drift_json_returns_summary(self, tmp_path: Path) -> None:
-        """With one drift JSON, return summary dict with required keys."""
+    def test_real_shape_drift_detected(self, tmp_path: Path) -> None:
+        """share >= 0.5 in the REAL Evidently 0.7 shape → dataset_drift True (exact)."""
         from volforecast.dashboard.data_access import latest_drift_summary
 
         monitoring_dir = tmp_path / "monitoring"
-        payload = {
-            "metrics": [
-                {
-                    "metric": "DataDriftTable",
-                    "result": {
-                        "dataset_drift": True,
-                        "drift_by_columns": {
-                            "rv_5": {"drift_detected": True},
-                            "rv_22": {"drift_detected": False},
-                        },
-                    },
-                }
-            ]
-        }
+        payload = _evidently_07_payload(count=12.0, share=0.6)
         _write_drift_json(monitoring_dir, "2026-06-12", payload)
 
         result = latest_drift_summary(monitoring_dir)
@@ -187,10 +226,83 @@ class TestLatestDriftSummary:
         assert "dataset_drift" in result
         assert "n_drifted_columns" in result
         assert "html_path" in result
-        # Values: dataset_drift should be True (or None if not found)
-        assert result["dataset_drift"] is True or result["dataset_drift"] is None
-        # n_drifted_columns should be int or None
-        assert result["n_drifted_columns"] is None or isinstance(result["n_drifted_columns"], int)
+        # EXACT assertions — no tautologies
+        assert result["date"] == "2026-06-12"
+        assert result["dataset_drift"] is True
+        assert result["n_drifted_columns"] == 12
+
+    def test_real_shape_share_below_threshold_is_not_drifted(self, tmp_path: Path) -> None:
+        """share < 0.5 in the REAL shape → dataset_drift False (never None)."""
+        from volforecast.dashboard.data_access import latest_drift_summary
+
+        monitoring_dir = tmp_path / "monitoring"
+        payload = _evidently_07_payload(count=2.0, share=0.1)
+        _write_drift_json(monitoring_dir, "2026-06-13", payload)
+
+        result = latest_drift_summary(monitoring_dir)
+
+        assert result is not None
+        assert result["dataset_drift"] is False
+        assert result["n_drifted_columns"] == 2
+
+    def test_real_shape_zero_drift(self, tmp_path: Path) -> None:
+        """count=0.0/share=0.0 (the exact values in the real repo file) → False / 0."""
+        from volforecast.dashboard.data_access import latest_drift_summary
+
+        monitoring_dir = tmp_path / "monitoring"
+        payload = _evidently_07_payload(count=0.0, share=0.0)
+        _write_drift_json(monitoring_dir, "2026-07-19", payload)
+
+        result = latest_drift_summary(monitoring_dir)
+
+        assert result is not None
+        assert result["dataset_drift"] is False
+        assert result["n_drifted_columns"] == 0
+
+    def test_real_shape_respects_configured_drift_share(self, tmp_path: Path) -> None:
+        """The threshold comes from config.drift_share when present (not hardcoded 0.5)."""
+        from volforecast.dashboard.data_access import latest_drift_summary
+
+        monitoring_dir = tmp_path / "monitoring"
+        # share=0.3 would be "no drift" at the default 0.5, but drift_share=0.25
+        payload = _evidently_07_payload(count=5.0, share=0.3, drift_share=0.25)
+        _write_drift_json(monitoring_dir, "2026-06-14", payload)
+
+        result = latest_drift_summary(monitoring_dir)
+
+        assert result is not None
+        assert result["dataset_drift"] is True
+        assert result["n_drifted_columns"] == 5
+
+    def test_parses_actual_repo_drift_file_if_present(self, tmp_path: Path) -> None:
+        """Integration-style: parse the REAL pipeline output file, skip when absent.
+
+        ``data/monitoring/2026-07-19_drift.json`` is gitignored pipeline
+        output — skipping keeps CI hermetic while still exercising the parser
+        against genuine Evidently 0.7.21 bytes on dev machines.
+        """
+        from volforecast.dashboard.data_access import latest_drift_summary
+
+        repo_root = Path(__file__).resolve().parents[2]
+        real_file = repo_root / "data" / "monitoring" / "2026-07-19_drift.json"
+        if not real_file.exists():
+            pytest.skip("real drift JSON not present (fresh clone / CI)")
+
+        # Copy into an isolated monitoring dir so latest-file selection is
+        # deterministic regardless of what else lives in data/monitoring/.
+        monitoring_dir = tmp_path / "monitoring"
+        monitoring_dir.mkdir(parents=True)
+        (monitoring_dir / real_file.name).write_bytes(real_file.read_bytes())
+
+        result = latest_drift_summary(monitoring_dir)
+
+        assert result is not None
+        assert result["date"] == "2026-07-19"
+        # The parser MUST resolve both fields on real output — None means the
+        # parser regressed to targeting a schema Evidently never produces.
+        assert isinstance(result["dataset_drift"], bool)
+        assert isinstance(result["n_drifted_columns"], int)
+        assert result["n_drifted_columns"] >= 0
 
     def test_multiple_drift_jsons_picks_latest(self, tmp_path: Path) -> None:
         """With multiple drift JSONs, the one with the latest date string is selected."""
