@@ -25,12 +25,13 @@ Honestly benchmark an ML volatility model against the correct classical baseline
 - [x] Evidently drift detection on features/predictions with alerting (report-only — never auto-promotes) — Validated in Phase 4
 - [x] Closed feedback loop: log forecast vs realized vol (auto-arriving label), feed errors into monitoring/retraining — Validated in Phase 4
 - [x] Champion/challenger: promote only if challenger beats champion on rolling QLIKE; rollback as single alias flip — Validated in Phase 4
-- [x] Prefect orchestration DAG: ingest → validate → features → label → drift-check → conditional retrain → eval → register → promotion-gate; scheduled + drift-triggered retrain — Validated in Phase 4 (live deployment registration pending operator UAT — see 04-HUMAN-UAT.md)
+- [x] Prefect orchestration DAG: ingest → validate → features → forecast → label → drift-check → conditional retrain → eval → register → promotion-gate; scheduled + drift-triggered retrain — Validated in Phase 4; live deployment run verified end-to-end 2026-07-19 (flow COMPLETED on the compose worker, forecasts generated in-flow, labels arrived, no auto-promote)
+- [x] Streamlit observability dashboard: forecast-vs-realized, drift status, model version, service stats — Validated in Phase 5 (drift panel parser fixed against real Evidently 0.7 output at milestone audit)
+- [x] MODEL_CARD.md with honest metrics, baselines, limitations; README with architecture diagram — Validated in Phase 5
 
 ### Active
 
-- [ ] Streamlit observability dashboard: forecast-vs-realized, drift status, model version, latency
-- [ ] MODEL_CARD.md with honest metrics, baselines, limitations; README with architecture diagram
+(None — v1.0 shipped. Run /gsd:new-milestone to define the next milestone.)
 
 ### Out of Scope
 
@@ -41,6 +42,17 @@ Honestly benchmark an ML volatility model against the correct classical baseline
 - Deep learning (LSTM/TFT) — optional add-on, not required for v1
 - Feast feature store — optional touch, deferred unless time permits
 - Cloud deployment hard-requirement — local Docker first; cloud (AWS/Azure) is a deploy target once serving works
+
+## Current State (v1.0 — SHIPPED 2026-07-19)
+
+VolForecast v1.0 is live locally: 6-service docker-compose stack (Postgres, MLflow with alias registry + artifact proxy, Prefect server + worker, FastAPI serving champion v4, Streamlit dashboard), a scheduled Prefect daily flow that closes the feedback loop end-to-end (verified live), 485 hermetic tests green in GitHub Actions CI, and an honest published result: leak-free LightGBM does not beat HAR-RV/EWMA on QLIKE at daily horizon. Milestone audit: .planning/v1.0-MILESTONE-AUDIT.md (passed). Archives: .planning/milestones/v1.0-*.
+
+## Next Milestone Goals (candidates)
+
+- Cloud deploy of the serving stack (AWS/Azure free tier) — v2 stretch STRETCH-03
+- Deep-learning challenger (LSTM/TFT) — STRETCH-02; intraday true RV — STRETCH-01
+- Multi-horizon forecasts via the horizon-parameterized harness — STRETCH-05
+- Dashboard alert-history panel (alerts.jsonl consumer) + /forecast latency caching (accepted tech debt)
 
 ## Context
 
@@ -89,4 +101,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-15 after Phase 4 (monitoring, orchestration & retraining) completion*
+*Last updated: 2026-07-19 after v1.0 milestone completion*
