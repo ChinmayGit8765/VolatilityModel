@@ -121,7 +121,7 @@ def test_happy_path_no_retrain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
         "volforecast.monitoring.performance.run_performance_monitor",
         lambda fvr_path, **kwargs: False,
     )
-    monkeypatch.setattr(dp, "_reference_path", lambda *a, **kw: tmp_path / "nonexistent.parquet")
+    monkeypatch.setattr(dp, "_resolve_reference_path", lambda: None)
     monkeypatch.setattr(dp, "_fvr_path", lambda: tmp_path / "fvr.parquet")
     monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
     monkeypatch.setattr(dp, "_repo_root", lambda: tmp_path)
@@ -166,7 +166,7 @@ def test_force_retrain_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         "volforecast.monitoring.performance.run_performance_monitor",
         lambda fvr_path, **kwargs: False,  # perf flag OFF — force_retrain overrides
     )
-    monkeypatch.setattr(dp, "_reference_path", lambda *a, **kw: tmp_path / "nonexistent.parquet")
+    monkeypatch.setattr(dp, "_resolve_reference_path", lambda: None)
     monkeypatch.setattr(dp, "_fvr_path", lambda: tmp_path / "fvr.parquet")
     monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
     monkeypatch.setattr(dp, "_repo_root", lambda: tmp_path)
@@ -220,7 +220,7 @@ def test_performance_flag_triggers_retrain(tmp_path: Path, monkeypatch: pytest.M
         "volforecast.monitoring.performance.run_performance_monitor",
         lambda fvr_path_, **kwargs: True,
     )
-    monkeypatch.setattr(dp, "_reference_path", lambda *a, **kw: tmp_path / "nonexistent.parquet")
+    monkeypatch.setattr(dp, "_resolve_reference_path", lambda: None)
     monkeypatch.setattr(dp, "_fvr_path", lambda: fvr_path)
     monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
     monkeypatch.setattr(dp, "_repo_root", lambda: tmp_path)
@@ -258,7 +258,7 @@ def test_flow_returns_expected_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         "volforecast.monitoring.performance.run_performance_monitor",
         lambda fvr_path, **kwargs: False,
     )
-    monkeypatch.setattr(dp, "_reference_path", lambda *a, **kw: tmp_path / "nonexistent.parquet")
+    monkeypatch.setattr(dp, "_resolve_reference_path", lambda: None)
     monkeypatch.setattr(dp, "_fvr_path", lambda: tmp_path / "fvr.parquet")
     monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
     monkeypatch.setattr(dp, "_repo_root", lambda: tmp_path)
@@ -318,14 +318,90 @@ def test_drift_check_task_no_reference(tmp_path: Path, monkeypatch: pytest.Monke
     import pipelines.daily_pipeline as dp
 
     monitoring_dir = tmp_path / "monitoring"
-    monkeypatch.setattr(
-        dp, "_reference_path", lambda *a, **kw: tmp_path / "nonexistent_ref.parquet"
-    )
+    monkeypatch.setattr(dp, "_resolve_reference_path", lambda: None)
     monkeypatch.setattr(dp, "_monitoring_dir", lambda: monitoring_dir)
     monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
 
     result = dp.drift_check_task.fn()
     assert isinstance(result, str), "drift_check_task must return a str path"
+
+
+# ---------------------------------------------------------------------------
+# Tests — reference snapshot resolution (audit WARNING fix: was pinned to v3)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_reference_uses_mlflow_champion_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When MLflow resolves @champion and its snapshot exists, that snapshot is used."""
+    import pipelines.daily_pipeline as dp
+
+    ref_dir = tmp_path / "data" / "monitoring" / "reference"
+    ref_dir.mkdir(parents=True)
+    (ref_dir / "3_reference.parquet").write_bytes(b"x")
+    (ref_dir / "7_reference.parquet").write_bytes(b"x")
+
+    monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
+
+    mock_mv = MagicMock()
+    mock_mv.version = "7"
+
+    class _FakeClient:
+        def __init__(self, *a: object, **kw: object) -> None:
+            pass
+
+        def get_model_version_by_alias(self, name: str, alias: str) -> MagicMock:
+            assert name == "volforecast-lgbm"
+            assert alias == "champion"
+            return mock_mv
+
+    monkeypatch.setattr("mlflow.MlflowClient", _FakeClient)
+
+    result = dp._resolve_reference_path()
+    assert result == ref_dir / "7_reference.parquet"
+
+
+def test_resolve_reference_falls_back_to_highest_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When MLflow raises, fall back to the HIGHEST-versioned *_reference.parquet."""
+    import pipelines.daily_pipeline as dp
+
+    ref_dir = tmp_path / "data" / "monitoring" / "reference"
+    ref_dir.mkdir(parents=True)
+    (ref_dir / "3_reference.parquet").write_bytes(b"x")
+    (ref_dir / "4_reference.parquet").write_bytes(b"x")
+
+    monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
+
+    class _BoomClient:
+        def __init__(self, *a: object, **kw: object) -> None:
+            raise RuntimeError("mlflow unreachable")
+
+    monkeypatch.setattr("mlflow.MlflowClient", _BoomClient)
+
+    result = dp._resolve_reference_path()
+    assert result == ref_dir / "4_reference.parquet", (
+        "fallback must pick the highest-versioned snapshot, not the stale v3"
+    )
+
+
+def test_resolve_reference_returns_none_when_no_snapshots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When MLflow is down AND no snapshots exist, return None (drift check skips)."""
+    import pipelines.daily_pipeline as dp
+
+    monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
+
+    class _BoomClient:
+        def __init__(self, *a: object, **kw: object) -> None:
+            raise RuntimeError("mlflow unreachable")
+
+    monkeypatch.setattr("mlflow.MlflowClient", _BoomClient)
+
+    assert dp._resolve_reference_path() is None
 
 
 def test_promotion_defaults_no_promote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

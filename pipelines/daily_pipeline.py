@@ -97,9 +97,81 @@ def _fvr_path() -> Path:
     return _data_root() / "monitoring" / "forecast_vs_realized.parquet"
 
 
-def _reference_path(champion_version: str = "3") -> Path:
+def _reference_path(champion_version: str) -> Path:
     """Return the frozen Evidently reference snapshot for the given champion version."""
     return _data_root() / "monitoring" / "reference" / f"{champion_version}_reference.parquet"
+
+
+def _resolve_reference_path() -> Path | None:
+    """Resolve the drift reference snapshot for the CURRENT champion version.
+
+    Audit WARNING fix: the reference was previously hardcoded to version "3",
+    so it went stale (and the drift check silently compared against the wrong
+    distribution) whenever the champion moved.
+
+    Resolution order:
+      1. Ask MLflow for the current champion via
+         ``MlflowClient.get_model_version_by_alias("volforecast-lgbm", "champion")``
+         (``MLFLOW_TRACKING_URI`` env, default ``http://localhost:5000``) and
+         use ``{version}_reference.parquet`` if that snapshot exists.
+      2. On ANY exception (MLflow down, alias unset) — or when the resolved
+         snapshot file is missing — fall back to the HIGHEST-versioned
+         ``*_reference.parquet`` present in ``data/monitoring/reference/``.
+
+    Logs which reference was chosen.  Returns None when no snapshot exists.
+    """
+    import os
+
+    logger = _get_logger()
+
+    try:
+        import mlflow
+        from mlflow import MlflowClient
+
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+        mlflow.set_tracking_uri(tracking_uri)
+        client = MlflowClient()
+        mv = client.get_model_version_by_alias("volforecast-lgbm", "champion")
+        champion_version = str(mv.version)
+        candidate = _reference_path(champion_version)
+        if candidate.exists():
+            logger.info(
+                "Drift reference: champion v%s (from MLflow) -> %s",
+                champion_version,
+                candidate,
+            )
+            return candidate
+        logger.warning(
+            "Champion is v%s but reference snapshot %s does not exist — "
+            "falling back to the highest-versioned snapshot. "
+            "Run scripts/create_reference_snapshot.py to freeze one for v%s.",
+            champion_version,
+            candidate,
+            champion_version,
+        )
+    except Exception as exc:  # noqa: BLE001 — MLflow unreachable / alias unset
+        logger.warning(
+            "Could not resolve champion version from MLflow (%s) — "
+            "falling back to the highest-versioned reference snapshot.",
+            exc,
+        )
+
+    ref_dir = _data_root() / "monitoring" / "reference"
+    candidates: list[tuple[int, Path]] = []
+    if ref_dir.exists():
+        for path in ref_dir.glob("*_reference.parquet"):
+            stem = path.name.removesuffix("_reference.parquet")
+            try:
+                candidates.append((int(stem), path))
+            except ValueError:
+                continue
+    if not candidates:
+        logger.warning("No reference snapshots found in %s", ref_dir)
+        return None
+
+    version, path = max(candidates)
+    logger.info("Drift reference: fallback highest-versioned snapshot v%d -> %s", version, path)
+    return path
 
 
 def _monitoring_dir() -> Path:
@@ -264,12 +336,14 @@ def drift_check_task() -> str:
     monitoring_dir = _monitoring_dir()
 
     # --- Load reference snapshot (frozen, never updated automatically) ---
-    ref_path = _reference_path("3")
-    if not ref_path.exists():
+    # Resolved against the CURRENT champion version (audit WARNING fix: was
+    # hardcoded to v3), with fallback to the highest-versioned snapshot.
+    ref_path = _resolve_reference_path()
+    if ref_path is None or not ref_path.exists():
         logger.warning(
-            "Reference snapshot not found at %s — skipping drift check. "
-            "Run scripts/create_reference_snapshot.py to create it.",
-            ref_path,
+            "No usable reference snapshot found under %s — skipping drift check. "
+            "Run scripts/create_reference_snapshot.py to create one.",
+            _data_root() / "monitoring" / "reference",
         )
         return str(monitoring_dir)
 
