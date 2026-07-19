@@ -39,6 +39,7 @@ import pandas as pd
 from volforecast.features.estimators import log_returns as compute_log_returns
 from volforecast.features.target import compute_target
 from volforecast.models.garch import GARCH, GarchFitError
+from volforecast.serving.prediction_log import PREDICTION_LOG_SCHEMA
 
 log = logging.getLogger(__name__)
 
@@ -138,8 +139,10 @@ def label_champion_forecasts(predictions: pd.DataFrame, data_root: Path) -> pd.D
     """
     from volforecast.config import load_assets, symbol_slug
 
-    # Validate required columns (T-04-01 input validation)
-    required = {"timestamp_utc", "asset", "horizon", "forecast_var", "model_version", "alias"}
+    # Validate required columns (T-04-01 input validation) against the
+    # canonical serving-side contract — never a hand-copied duplicate that
+    # can drift out of sync with PREDICTION_LOG_SCHEMA (audit WARNING fix).
+    required = set(PREDICTION_LOG_SCHEMA)
     missing_cols = required - set(predictions.columns)
     if missing_cols:
         raise ValueError(f"prediction log is missing columns: {missing_cols}")
