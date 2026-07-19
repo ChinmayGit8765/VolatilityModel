@@ -106,6 +106,9 @@ services:
     restart: unless-stopped
     depends_on:
       - prefect-server
+      # forecast_task calls the serving API over the compose network — the api
+      # service must be up (audit BLOCKER-1 fix).
+      - api
     environment:
       PREFECT_API_URL: "http://prefect-server:4200/api"
       # Worker needs MLFLOW_TRACKING_URI so retrain_task can register models
@@ -116,6 +119,9 @@ services:
       # Data dir is bind-mounted at /repo/data (matches the volumes entry below),
       # so data resolution must point there, not the image-default /data.
       VOLFORECAST_DATA_ROOT: "/repo/data"
+      # forecast_task hits GET {VOLFORECAST_API_URL}/forecast so the daily flow
+      # generates live forecasts through the REAL serving path (audit BLOCKER-1).
+      VOLFORECAST_API_URL: "http://api:8000"
     # --type process makes Prefect 3 auto-create the work pool on first start.
     # Without it, the worker errors out because nothing else creates local-pool,
     # and restart: unless-stopped turns that into a crash loop.

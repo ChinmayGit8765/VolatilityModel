@@ -126,6 +126,7 @@ def test_happy_path_no_retrain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
     monkeypatch.setattr(dp, "_repo_root", lambda: tmp_path)
     monkeypatch.setattr(dp, "_monitoring_dir", lambda: tmp_path / "monitoring")
+    monkeypatch.setattr(dp.forecast_task, "fn", lambda: 5)
 
     retrain_calls: list[str] = []
     monkeypatch.setattr(dp.retrain_task, "fn", lambda: (retrain_calls.append("r"), "99")[1])
@@ -136,6 +137,7 @@ def test_happy_path_no_retrain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert result["promoted"] is False
     assert result["challenger_version"] is None
     assert len(retrain_calls) == 0, "retrain_task must not be called when should_retrain=False"
+    assert result["n_forecasts"] == 5
     assert "rows_labelled" in result
     assert "drift_report_path" in result
     assert "run_date" in result
@@ -172,6 +174,7 @@ def test_force_retrain_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
     call_log: list[str] = []
 
+    monkeypatch.setattr(dp.forecast_task, "fn", lambda: 5)
     monkeypatch.setattr(dp.retrain_task, "fn", lambda: (call_log.append("retrain"), "10")[1])
     monkeypatch.setattr(dp.eval_task, "fn", lambda: call_log.append("eval"))
     monkeypatch.setattr(
@@ -224,6 +227,7 @@ def test_performance_flag_triggers_retrain(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(dp, "_monitoring_dir", lambda: tmp_path / "monitoring")
 
     retrain_calls: list[str] = []
+    monkeypatch.setattr(dp.forecast_task, "fn", lambda: 5)
     monkeypatch.setattr(dp.retrain_task, "fn", lambda: (retrain_calls.append("retrain"), "5")[1])
     monkeypatch.setattr(dp.eval_task, "fn", lambda: None)
     monkeypatch.setattr(dp.promotion_gate_task, "fn", lambda v: False)
@@ -259,10 +263,12 @@ def test_flow_returns_expected_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(dp, "_data_root", lambda: tmp_path / "data")
     monkeypatch.setattr(dp, "_repo_root", lambda: tmp_path)
     monkeypatch.setattr(dp, "_monitoring_dir", lambda: tmp_path / "monitoring")
+    monkeypatch.setattr(dp.forecast_task, "fn", lambda: 0)
 
     result = dp.daily_flow(force_retrain=False)
 
     required_keys = {
+        "n_forecasts",
         "rows_labelled",
         "drift_report_path",
         "should_retrain",

@@ -1,12 +1,15 @@
 """Prefect 3 daily orchestration flow for VolForecast.
 
-Wires ingest → validate → features → label → drift-check → (conditional retrain
-→ eval → register-challenger) → promotion-gate as thin @task wrappers over
-existing scripts and the Plan 01-04 monitoring functions.
+Wires ingest → validate → features → forecast → label → drift-check →
+(conditional retrain → eval → register-challenger) → promotion-gate as thin
+@task wrappers over existing scripts and the Plan 01-04 monitoring functions.
 
-Task order is locked (per 04-CONTEXT.md):
+Task order is locked (per 04-CONTEXT.md, forecast_task added by the milestone
+audit fix — the daily flow previously never generated forecasts, so label_task
+was a silent no-op loop):
     ingest_validate_task
     → features_task
+    → forecast_task
     → label_task
     → drift_check_task
     → performance_check_task  (retrain trigger — MON-03)
@@ -173,6 +176,52 @@ def ingest_validate_task() -> None:
 def features_task() -> None:
     """Run scripts/generate_features.py — writes per-asset feature parquets."""
     _run_script(_repo_root() / "scripts" / "generate_features.py", "generate_features")
+
+
+@task(name="generate-forecasts", retries=2, retry_delay_seconds=60)
+def forecast_task() -> int:
+    """Call the serving API ``GET /forecast`` so live forecasts are generated + logged.
+
+    This exercises the REAL serving path end-to-end: champion model load, the
+    single ``build_features`` codepath, and the prediction-log append with
+    model-version metadata.  The API is reached over the compose network via
+    ``VOLFORECAST_API_URL`` (default ``http://api:8000`` — the prefect-worker
+    container's view of the ``api`` service).
+
+    A dead serving layer must fail the flow LOUDLY: any HTTP error or
+    connection failure raises (after retries=2 with 60s delay) — it is never
+    silently skipped.  The milestone audit's core finding was a silent no-op
+    loop where label_task had nothing to label because nothing ever called
+    ``/forecast``.
+
+    Timeout is 300s: GARCH-as-a-feature makes ``/forecast`` take ~40-60s
+    per call.
+
+    Returns:
+        Number of forecasts returned by the API.
+    """
+    import json
+    import os
+    import urllib.request
+
+    logger = _get_logger()
+    api_base = os.environ.get("VOLFORECAST_API_URL", "http://api:8000")
+    url = f"{api_base.rstrip('/')}/forecast"
+    logger.info("Requesting live forecasts: GET %s (timeout=300s)", url)
+
+    req = urllib.request.Request(url, method="GET")
+    with urllib.request.urlopen(req, timeout=300) as resp:  # noqa: S310 — internal compose URL
+        body = resp.read()
+
+    payload = json.loads(body)
+    forecasts = payload.get("forecasts", []) if isinstance(payload, dict) else []
+    n_forecasts = len(forecasts)
+    logger.info(
+        "Serving API returned %d forecasts (appended to the prediction log "
+        "with model-version metadata)",
+        n_forecasts,
+    )
+    return n_forecasts
 
 
 @task(name="label-forecasts")
@@ -491,8 +540,8 @@ def promotion_gate_task(challenger_version: str) -> bool:
 def daily_flow(force_retrain: bool = False) -> dict[str, Any]:
     """Daily VolForecast orchestration flow (ORCH-01, ORCH-02).
 
-    Chains ingest → features → label → drift-check → performance-check →
-    (conditional retrain → eval → promotion-gate).
+    Chains ingest → features → forecast → label → drift-check →
+    performance-check → (conditional retrain → eval → promotion-gate).
 
     Args:
         force_retrain: Ephemeral flow parameter — if True, runs retrain regardless
@@ -500,8 +549,9 @@ def daily_flow(force_retrain: bool = False) -> dict[str, Any]:
             Set via the Prefect UI "Quick run" or CLI `--param force_retrain=true`.
 
     Returns:
-        Summary dict with keys: rows_labelled, drift_report_path, should_retrain,
-        challenger_version, promoted, run_date.  Logged for observability.
+        Summary dict with keys: n_forecasts, rows_labelled, drift_report_path,
+        should_retrain, challenger_version, promoted, run_date.  Logged for
+        observability.
     """
     logger = _get_logger()
     logger.info("daily_flow starting — force_retrain=%s", force_retrain)
@@ -512,17 +562,22 @@ def daily_flow(force_retrain: bool = False) -> dict[str, Any]:
     # 2. Generate features
     features_task()
 
-    # 3. Label forecasts — returns net-new row count
+    # 3. Generate live forecasts via the serving API (audit BLOCKER-1 fix):
+    #    exercises champion load + prediction-log append so label_task always
+    #    has fresh rows to label.  A dead serving layer fails the flow loudly.
+    n_forecasts = forecast_task()
+
+    # 4. Label forecasts — returns net-new row count
     rows_labelled = label_task()
 
-    # 4. Drift check (report-only — returns output dir path, no retrain signal)
+    # 5. Drift check (report-only — returns output dir path, no retrain signal)
     drift_report_path = drift_check_task()
 
-    # 5. Performance check — authoritative retrain trigger (MON-03)
+    # 6. Performance check — authoritative retrain trigger (MON-03)
     should_retrain_flag = performance_check_task()
     should_retrain = should_retrain_flag or force_retrain
 
-    # 6. Conditional retrain path
+    # 7. Conditional retrain path
     challenger_version: str | None = None
     promoted = False
 
@@ -533,13 +588,13 @@ def daily_flow(force_retrain: bool = False) -> dict[str, Any]:
             should_retrain_flag,
             force_retrain,
         )
-        # 6a. Retrain + register as @challenger (never auto-champion)
+        # 7a. Retrain + register as @challenger (never auto-champion)
         challenger_version = retrain_task()
 
-        # 6b. Eval report
+        # 7b. Eval report
         eval_task()
 
-        # 6c. Promotion gate (only called when retraining happened — default no-promote)
+        # 7c. Promotion gate (only called when retraining happened — default no-promote)
         promoted = promotion_gate_task(challenger_version)
     else:
         logger.info(
@@ -550,6 +605,7 @@ def daily_flow(force_retrain: bool = False) -> dict[str, Any]:
         )
 
     summary: dict[str, Any] = {
+        "n_forecasts": n_forecasts,
         "rows_labelled": rows_labelled,
         "drift_report_path": drift_report_path,
         "should_retrain": should_retrain,
