@@ -150,7 +150,7 @@ def ingest_validate_task() -> None:
     logger.info("Starting ingest+validate via 'volforecast ingest' CLI")
 
     result = subprocess.run(
-        [sys.executable, "-m", "volforecast.cli"],
+        [sys.executable, "-m", "volforecast.cli", "ingest"],
         cwd=str(_repo_root()),
         capture_output=True,
         text=True,

@@ -322,3 +322,10 @@ def main() -> None:
     else:
         parser.print_help()
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    # Required so `python -m volforecast.cli <command>` executes the CLI.
+    # Without this guard, `-m` imports the module and exits 0 having done
+    # nothing — the daily flow's ingest task would silently no-op.
+    main()

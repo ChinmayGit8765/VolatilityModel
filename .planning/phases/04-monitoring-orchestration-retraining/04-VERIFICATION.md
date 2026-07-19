@@ -1,8 +1,22 @@
 ---
 phase: 04-monitoring-orchestration-retraining
 verified: 2026-06-15T00:00:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified
+human_verification_resolved: >
+  2026-07-19 — live deployment check executed by the orchestrator on the running compose
+  stack. Deployment volforecast-daily registered from INSIDE the prefect-worker container
+  (source=/repo; registering from the Windows host recorded a host path the Linux worker
+  cannot chdir into — fixed operational procedure). Manual run 'daffodil-condor'
+  (0ba41ea4) went Scheduled -> Running -> COMPLETED on work pool local-pool (cron 0 8 * * *).
+  Evidence: ingest refreshed all 5 assets through 2026-07-17; labeller net_new_rows=166
+  (forecast_vs_realized.parquet 5313 -> 5479 rows, including 10 champion rows as_of
+  2026-06-10..11 alongside garch_baseline); 2026-07-19_drift.{html,json} written;
+  performance check ran (should_retrain=False); @champion alias unchanged at v4 (no
+  auto-promote). A latent defect was found and fixed during this verification: cli.py
+  lacked a __main__ guard so the flow's `python -m volforecast.cli` ingest was a silent
+  no-op (exit 0, nothing fetched); fixed with the guard + explicit `ingest` subcommand
+  + regression tests (tests/unit/test_cli_entrypoint.py).
 overrides_applied: 0
 human_verification:
   - test: "Register volforecast-daily deployment against running compose Prefect server and trigger a manual run end-to-end"
